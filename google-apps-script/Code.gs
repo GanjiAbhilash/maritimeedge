@@ -58,11 +58,14 @@ function handleSubscriber(data) {
   }
 
   // Check for duplicate email
-  const emails = sheet.getRange(1, 1, sheet.getLastRow(), 1).getValues().flat();
-  if (emails.includes(data.email)) {
-    return ContentService
-      .createTextOutput(JSON.stringify({ status: 'duplicate', message: 'Already subscribed' }))
-      .setMimeType(ContentService.MimeType.JSON);
+  const lastRow = sheet.getLastRow();
+  if (lastRow > 0) {
+    const emails = sheet.getRange(1, 1, lastRow, 1).getValues().flat();
+    if (emails.includes(data.email)) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ status: 'duplicate', message: 'Already subscribed' }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
   }
 
   // Add new subscriber
@@ -72,9 +75,53 @@ function handleSubscriber(data) {
     data.source || 'unknown'
   ]);
 
+  // Send acknowledgment email to subscriber
+  sendSubscriberAcknowledgment(data.email);
+
   return ContentService
     .createTextOutput(JSON.stringify({ status: 'success', message: 'Subscribed' }))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ─── SUBSCRIBER ACKNOWLEDGMENT EMAIL ─────────────────────────
+function sendSubscriberAcknowledgment(email) {
+  const subject = 'Welcome to MaritimeEdge — Indian Shipping Intelligence';
+
+  const htmlBody = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+      <div style="background: #0052CC; color: white; padding: 24px; text-align: center;">
+        <h1 style="margin: 0; font-size: 22px;">⚓ MaritimeEdge</h1>
+        <p style="margin: 4px 0 0; opacity: 0.8; font-size: 13px;">Indian Shipping Intelligence</p>
+      </div>
+      <div style="padding: 32px 24px;">
+        <h2 style="color: #0052CC; margin-top: 0;">You're subscribed!</h2>
+        <p style="color: #333; line-height: 1.6;">Thank you for subscribing to <strong>MaritimeEdge</strong>. You'll now receive our weekly newsletter with:</p>
+        <ul style="color: #555; line-height: 1.8;">
+          <li>🚢 Indian port operations &amp; customs updates</li>
+          <li>📊 Ocean freight rate trends from Indian ports</li>
+          <li>📋 DGFT notifications &amp; EXIM policy changes</li>
+          <li>💼 Shipping &amp; logistics job opportunities in India</li>
+        </ul>
+        <p style="color: #333; line-height: 1.6;">In the meantime, explore our platform:</p>
+        <div style="text-align: center; margin: 24px 0;">
+          <a href="https://ganjiabhilash.github.io/maritimeedge/news.html" style="background: #0052CC; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 4px;">Latest News</a>
+          <a href="https://ganjiabhilash.github.io/maritimeedge/tools.html" style="background: #00875A; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 4px;">EXIM Tools</a>
+          <a href="https://ganjiabhilash.github.io/maritimeedge/contact.html" style="background: #FF991F; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin: 4px;">Get Quote</a>
+        </div>
+      </div>
+      <div style="padding: 20px; background: #1a1a2e; color: #999; text-align: center; font-size: 12px;">
+        <p style="margin: 0;">MaritimeEdge — A <a href="https://vaseraglobal.com" style="color: #00B8D9;">Vasera Global</a> Initiative</p>
+        <p style="margin: 8px 0 0;">Sent to ${email}</p>
+      </div>
+    </div>
+  `;
+
+  MailApp.sendEmail({
+    to: email,
+    subject: subject,
+    htmlBody: htmlBody,
+    name: 'MaritimeEdge'
+  });
 }
 
 // ─── RFQ SUBMISSION ─────────────────────────────────────────
