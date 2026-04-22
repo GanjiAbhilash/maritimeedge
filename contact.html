@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Contact &amp; Submit RFQ — MaritimeEdge</title>
-  <meta name="description" content="Get shipping quotes from verified logistics providers. Submit your Request for Quotation (RFQ) and receive competitive rates.">
-  <meta property="og:title" content="Contact & Submit RFQ — MaritimeEdge">
-  <meta property="og:description" content="Submit a shipping RFQ and get competitive quotes from verified providers.">
+  <title>Get Sea Freight Quote from India — MaritimeEdge</title>
+  <meta name="description" content="Request ocean freight quotes from Indian ports worldwide. Get competitive rates from verified Indian freight forwarders and shipping lines.">
+  <meta property="og:title" content="Get Sea Freight Quote from India — MaritimeEdge">
+  <meta property="og:description" content="Request sea freight quotes from JNPT, Mundra, Chennai, and other Indian ports to any destination.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
   <link rel="stylesheet" href="css/styles.css">
 </head>
 <body>
 
-  <!-- Navbar -->
   <nav class="navbar">
     <div class="container">
       <a href="index.html" class="navbar__logo">
@@ -27,179 +26,195 @@
         <a href="directory.html" class="navbar__link">Directory</a>
         <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
       </div>
-      <button class="navbar__toggle" aria-label="Toggle menu">
-        <span></span><span></span><span></span>
-      </button>
+      <button class="navbar__toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
     </div>
   </nav>
 
-  <!-- Page Header -->
   <section class="page-header">
     <div class="container">
-      <h1 class="page-header__title">Get a Shipping Quote</h1>
-      <p class="page-header__desc">Submit your RFQ and receive competitive rates from verified logistics providers within 24 hours.</p>
+      <h1 class="page-header__title">Request a Sea Freight Quote</h1>
+      <p class="page-header__desc">Get competitive ocean freight rates from Indian ports to any destination worldwide. Our verified providers will respond within 24 hours.</p>
     </div>
   </section>
 
-  <!-- RFQ Form -->
   <section class="section">
     <div class="container">
-      <form class="form" id="rfq-form">
-        <h2 class="section__title" style="text-align:left; font-size:1.4rem; margin-bottom:24px;">Request for Quotation</h2>
+      <div class="grid grid--2">
+        <div>
+          <form class="form" id="rfq-form">
+            <h2 class="form__title">Shipment Details</h2>
 
-        <div class="form__row">
-          <div class="form__group">
-            <label class="form__label" for="name">Full Name *</label>
-            <input type="text" class="form__input" id="name" name="name" placeholder="John Doe" required>
-          </div>
-          <div class="form__group">
-            <label class="form__label" for="email">Email Address *</label>
-            <input type="email" class="form__input" id="email" name="email" placeholder="john@company.com" required>
-          </div>
+            <div class="form__group">
+              <label class="form__label" for="fullName">Full Name *</label>
+              <input type="text" class="form__input" id="fullName" name="fullName" placeholder="Your full name" required>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="email">Email Address *</label>
+              <input type="email" class="form__input" id="email" name="email" placeholder="you@company.com" required>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="phone">Phone Number *</label>
+              <input type="tel" class="form__input" id="phone" name="phone" placeholder="+91 98765 43210" required>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="company">Company Name</label>
+              <input type="text" class="form__input" id="company" name="company" placeholder="Your company name">
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="origin">Origin Port (India) *</label>
+                <select class="form__input" id="origin" name="origin" required>
+                  <option value="">Select Indian Port</option>
+                  <option value="JNPT / Nhava Sheva">JNPT / Nhava Sheva</option>
+                  <option value="Mundra">Mundra</option>
+                  <option value="Chennai">Chennai</option>
+                  <option value="Kochi / Cochin">Kochi / Cochin</option>
+                  <option value="Kolkata / Haldia">Kolkata / Haldia</option>
+                  <option value="Visakhapatnam">Visakhapatnam</option>
+                  <option value="Tuticorin">Tuticorin</option>
+                  <option value="Kandla">Kandla</option>
+                  <option value="Mangalore">Mangalore</option>
+                  <option value="Paradip">Paradip</option>
+                  <option value="Pipavav">Pipavav</option>
+                  <option value="Krishnapatnam">Krishnapatnam</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="destination">Destination Port / Country *</label>
+                <input type="text" class="form__input" id="destination" name="destination" placeholder="e.g., Rotterdam, Netherlands" required>
+              </div>
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="shipmentType">Shipment Type *</label>
+                <select class="form__input" id="shipmentType" name="shipmentType" required>
+                  <option value="">Select type</option>
+                  <option value="FCL 20ft">FCL — 20ft Container</option>
+                  <option value="FCL 40ft">FCL — 40ft Container</option>
+                  <option value="FCL 40ft HC">FCL — 40ft High Cube</option>
+                  <option value="LCL">LCL (Less than Container Load)</option>
+                  <option value="Reefer 20ft">Reefer — 20ft</option>
+                  <option value="Reefer 40ft">Reefer — 40ft</option>
+                  <option value="Break Bulk">Break Bulk</option>
+                  <option value="RoRo">RoRo (Roll-on/Roll-off)</option>
+                </select>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="cargoWeight">Cargo Weight (kg)</label>
+                <input type="text" class="form__input" id="cargoWeight" name="cargoWeight" placeholder="e.g., 15000">
+              </div>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="commodity">Commodity / Cargo Description *</label>
+              <input type="text" class="form__input" id="commodity" name="commodity" placeholder="e.g., Cotton textiles, HS code 5208" required>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="incoterm">Preferred Incoterm</label>
+              <select class="form__input" id="incoterm" name="incoterm">
+                <option value="">Select incoterm</option>
+                <option value="FOB">FOB (Free On Board)</option>
+                <option value="CIF">CIF (Cost, Insurance & Freight)</option>
+                <option value="CFR">CFR (Cost & Freight)</option>
+                <option value="EXW">EXW (Ex Works)</option>
+                <option value="DDP">DDP (Delivered Duty Paid)</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="readyDate">Cargo Ready Date</label>
+              <input type="date" class="form__input" id="readyDate" name="readyDate">
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="message">Additional Requirements</label>
+              <textarea class="form__input form__input--textarea" id="message" name="message" rows="4" placeholder="Any special requirements — dangerous goods, temperature control, insurance, customs clearance needed, etc."></textarea>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--lg form__submit">Submit Quote Request →</button>
+          </form>
         </div>
 
-        <div class="form__row">
-          <div class="form__group">
-            <label class="form__label" for="company">Company Name</label>
-            <input type="text" class="form__input" id="company" name="company" placeholder="Acme Trading Co.">
-          </div>
-          <div class="form__group">
-            <label class="form__label" for="phone">Phone Number</label>
-            <input type="tel" class="form__input" id="phone" name="phone" placeholder="+1 (555) 123-4567">
-          </div>
-        </div>
-
-        <div class="form__row">
-          <div class="form__group">
-            <label class="form__label" for="origin">Origin (Port / City) *</label>
-            <input type="text" class="form__input" id="origin" name="origin" placeholder="Shanghai, China" required>
-          </div>
-          <div class="form__group">
-            <label class="form__label" for="destination">Destination (Port / City) *</label>
-            <input type="text" class="form__input" id="destination" name="destination" placeholder="Rotterdam, Netherlands" required>
-          </div>
-        </div>
-
-        <div class="form__row">
-          <div class="form__group">
-            <label class="form__label" for="shipment-type">Shipment Type *</label>
-            <select class="form__select" id="shipment-type" name="shipment-type" required>
-              <option value="">Select type</option>
-              <option value="fcl">FCL (Full Container Load)</option>
-              <option value="lcl">LCL (Less than Container Load)</option>
-              <option value="air">Air Freight</option>
-              <option value="bulk">Bulk / Break Bulk</option>
-              <option value="roro">RoRo</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="form__group">
-            <label class="form__label" for="incoterm">Preferred Incoterm</label>
-            <select class="form__select" id="incoterm" name="incoterm">
-              <option value="">Select incoterm</option>
-              <option value="exw">EXW</option>
-              <option value="fob">FOB</option>
-              <option value="cif">CIF</option>
-              <option value="cfr">CFR</option>
-              <option value="ddp">DDP</option>
-              <option value="dap">DAP</option>
-              <option value="other">Other</option>
-            </select>
+        <div>
+          <div class="form" style="background: var(--bg-secondary); position: sticky; top: 100px;">
+            <h2 class="form__title">Contact Information</h2>
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">📧 Email</h3>
+              <p style="color: var(--text-secondary);">quotes@maritimeedge.com</p>
+            </div>
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">📞 Phone</h3>
+              <p style="color: var(--text-secondary);">+91 22 4000 XXXX (Mumbai)</p>
+            </div>
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">🏢 Parent Company</h3>
+              <p style="color: var(--text-secondary);">MaritimeEdge is a <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color: var(--primary);">Vasera Global</a> initiative, bringing digital transformation to Indian sea logistics.</p>
+            </div>
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">⏰ Response Time</h3>
+              <p style="color: var(--text-secondary);">Our verified freight forwarders typically respond within 24 business hours with competitive quotes.</p>
+            </div>
+            <hr style="border: 1px solid var(--border); margin: 24px 0;">
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 12px;">Why MaritimeEdge?</h3>
+            <ul style="color: var(--text-secondary); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
+              <li>✅ 500+ verified Indian logistics providers</li>
+              <li>✅ Quotes from multiple forwarders in one request</li>
+              <li>✅ All 13 major Indian ports covered</li>
+              <li>✅ Transparent pricing — no hidden fees</li>
+              <li>✅ End-to-end support including customs clearance</li>
+            </ul>
           </div>
         </div>
+      </div>
+    </div>
+  </section>
 
-        <div class="form__group">
-          <label class="form__label" for="cargo">Cargo Details *</label>
-          <textarea class="form__textarea" id="cargo" name="cargo" placeholder="Describe your cargo: commodity, weight, dimensions, number of packages, any special requirements (hazardous, temperature-controlled, etc.)" required></textarea>
-        </div>
-
-        <div class="form__group">
-          <label class="form__label" for="notes">Additional Notes</label>
-          <textarea class="form__textarea" id="notes" name="notes" placeholder="Any additional information, preferred shipping dates, insurance requirements, etc." style="min-height:80px;"></textarea>
-        </div>
-
-        <button type="submit" class="btn btn--primary form__submit">Submit RFQ →</button>
-
-        <div class="form__success">
-          ✓ Your RFQ has been submitted successfully! We'll connect you with verified providers within 24 hours.
-        </div>
+  <section class="newsletter">
+    <div class="container">
+      <div class="newsletter__content">
+        <h2 class="newsletter__title">Indian Shipping Intelligence — Weekly</h2>
+        <p class="newsletter__desc">Get port updates, customs circulars, rate trends, and EXIM policy changes delivered to your inbox.</p>
+      </div>
+      <form class="newsletter__form" id="newsletter-form">
+        <input type="email" name="email" class="newsletter__input" placeholder="Enter your email address" required>
+        <button type="submit" class="newsletter__btn">Subscribe</button>
       </form>
     </div>
   </section>
 
-  <!-- Contact Info -->
-  <section class="section section--alt">
-    <div class="container">
-      <div class="section__header">
-        <h2 class="section__title">Other Ways to Reach Us</h2>
-      </div>
-      <div class="grid grid--3">
-        <div class="tool-card">
-          <div class="tool-card__icon">📧</div>
-          <h3 class="tool-card__title">Email</h3>
-          <p class="tool-card__desc">hello@maritimeedge.com<br>We respond within 24 hours.</p>
-        </div>
-        <div class="tool-card">
-          <div class="tool-card__icon">💬</div>
-          <h3 class="tool-card__title">Live Chat</h3>
-          <p class="tool-card__desc">Available Monday – Friday<br>9:00 AM – 6:00 PM (GMT+8)</p>
-        </div>
-        <div class="tool-card">
-          <div class="tool-card__icon">🏢</div>
-          <h3 class="tool-card__title">Office</h3>
-          <p class="tool-card__desc">MaritimeEdge HQ<br>Singapore, 018989</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <div class="footer__grid">
         <div>
           <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
-          <p class="footer__desc">The leading platform for shipping intelligence, logistics news, and trade tools — empowering global commerce since 2024.</p>
-          <div class="footer__social">
-            <a href="#" aria-label="Twitter">𝕏</a>
-            <a href="#" aria-label="LinkedIn">in</a>
-            <a href="#" aria-label="YouTube">▶</a>
-          </div>
+          <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#00B8D9;">Vasera Global</a> initiative</p>
+          <div class="footer__social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="YouTube">▶</a></div>
         </div>
         <div>
           <h4 class="footer__heading">Platform</h4>
-          <ul class="footer__links">
-            <li><a href="news.html">News</a></li>
-            <li><a href="jobs.html">Jobs</a></li>
-            <li><a href="tools.html">Tools</a></li>
-            <li><a href="directory.html">Directory</a></li>
-          </ul>
+          <ul class="footer__links"><li><a href="news.html">News</a></li><li><a href="jobs.html">Jobs</a></li><li><a href="tools.html">Tools</a></li><li><a href="directory.html">Directory</a></li></ul>
         </div>
         <div>
           <h4 class="footer__heading">Company</h4>
-          <ul class="footer__links">
-            <li><a href="#">About Us</a></li>
-            <li><a href="contact.html">Contact</a></li>
-            <li><a href="#">Advertise</a></li>
-            <li><a href="#">Careers</a></li>
-          </ul>
+          <ul class="footer__links"><li><a href="https://vaseraglobal.com" target="_blank" rel="noopener">Vasera Global</a></li><li><a href="contact.html">Contact</a></li><li><a href="#">Advertise</a></li><li><a href="#">List Your Company</a></li></ul>
         </div>
         <div>
-          <h4 class="footer__heading">Resources</h4>
-          <ul class="footer__links">
-            <li><a href="#">API Docs</a></li>
-            <li><a href="#">Help Center</a></li>
-            <li><a href="#">Blog</a></li>
-            <li><a href="#">Partners</a></li>
-          </ul>
+          <h4 class="footer__heading">Indian Ports</h4>
+          <ul class="footer__links"><li><a href="#">JNPT / Nhava Sheva</a></li><li><a href="#">Mundra</a></li><li><a href="#">Chennai</a></li><li><a href="#">Kochi / Cochin</a></li></ul>
         </div>
       </div>
       <div class="footer__bottom">
-        <span>&copy; 2026 MaritimeEdge. All rights reserved.</span>
-        <div class="footer__bottom-links">
-          <a href="#">Privacy Policy</a>
-          <a href="#">Terms of Service</a>
-        </div>
+        <span>&copy; 2026 MaritimeEdge. A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.7);">Vasera Global</a> initiative.</span>
+        <div class="footer__bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div>
       </div>
     </div>
   </footer>
