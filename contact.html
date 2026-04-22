@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact &amp; Submit RFQ — MaritimeEdge</title>
+  <meta name="description" content="Get shipping quotes from verified logistics providers. Submit your Request for Quotation (RFQ) and receive competitive rates.">
+  <meta property="og:title" content="Contact & Submit RFQ — MaritimeEdge">
+  <meta property="og:description" content="Submit a shipping RFQ and get competitive quotes from verified providers.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="navbar__logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0052CC" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0052CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/></svg>
+        Maritime<span>Edge</span>
+      </a>
+      <div class="navbar__menu">
+        <a href="index.html" class="navbar__link">Home</a>
+        <a href="news.html" class="navbar__link">News</a>
+        <a href="jobs.html" class="navbar__link">Jobs</a>
+        <a href="tools.html" class="navbar__link">Tools</a>
+        <a href="directory.html" class="navbar__link">Directory</a>
+        <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
+      </div>
+      <button class="navbar__toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Page Header -->
+  <section class="page-header">
+    <div class="container">
+      <h1 class="page-header__title">Get a Shipping Quote</h1>
+      <p class="page-header__desc">Submit your RFQ and receive competitive rates from verified logistics providers within 24 hours.</p>
+    </div>
+  </section>
+
+  <!-- RFQ Form -->
+  <section class="section">
+    <div class="container">
+      <form class="form" id="rfq-form">
+        <h2 class="section__title" style="text-align:left; font-size:1.4rem; margin-bottom:24px;">Request for Quotation</h2>
+
+        <div class="form__row">
+          <div class="form__group">
+            <label class="form__label" for="name">Full Name *</label>
+            <input type="text" class="form__input" id="name" name="name" placeholder="John Doe" required>
+          </div>
+          <div class="form__group">
+            <label class="form__label" for="email">Email Address *</label>
+            <input type="email" class="form__input" id="email" name="email" placeholder="john@company.com" required>
+          </div>
+        </div>
+
+        <div class="form__row">
+          <div class="form__group">
+            <label class="form__label" for="company">Company Name</label>
+            <input type="text" class="form__input" id="company" name="company" placeholder="Acme Trading Co.">
+          </div>
+          <div class="form__group">
+            <label class="form__label" for="phone">Phone Number</label>
+            <input type="tel" class="form__input" id="phone" name="phone" placeholder="+1 (555) 123-4567">
+          </div>
+        </div>
+
+        <div class="form__row">
+          <div class="form__group">
+            <label class="form__label" for="origin">Origin (Port / City) *</label>
+            <input type="text" class="form__input" id="origin" name="origin" placeholder="Shanghai, China" required>
+          </div>
+          <div class="form__group">
+            <label class="form__label" for="destination">Destination (Port / City) *</label>
+            <input type="text" class="form__input" id="destination" name="destination" placeholder="Rotterdam, Netherlands" required>
+          </div>
+        </div>
+
+        <div class="form__row">
+          <div class="form__group">
+            <label class="form__label" for="shipment-type">Shipment Type *</label>
+            <select class="form__select" id="shipment-type" name="shipment-type" required>
+              <option value="">Select type</option>
+              <option value="fcl">FCL (Full Container Load)</option>
+              <option value="lcl">LCL (Less than Container Load)</option>
+              <option value="air">Air Freight</option>
+              <option value="bulk">Bulk / Break Bulk</option>
+              <option value="roro">RoRo</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="form__group">
+            <label class="form__label" for="incoterm">Preferred Incoterm</label>
+            <select class="form__select" id="incoterm" name="incoterm">
+              <option value="">Select incoterm</option>
+              <option value="exw">EXW</option>
+              <option value="fob">FOB</option>
+              <option value="cif">CIF</option>
+              <option value="cfr">CFR</option>
+              <option value="ddp">DDP</option>
+              <option value="dap">DAP</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form__group">
+          <label class="form__label" for="cargo">Cargo Details *</label>
+          <textarea class="form__textarea" id="cargo" name="cargo" placeholder="Describe your cargo: commodity, weight, dimensions, number of packages, any special requirements (hazardous, temperature-controlled, etc.)" required></textarea>
+        </div>
+
+        <div class="form__group">
+          <label class="form__label" for="notes">Additional Notes</label>
+          <textarea class="form__textarea" id="notes" name="notes" placeholder="Any additional information, preferred shipping dates, insurance requirements, etc." style="min-height:80px;"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn--primary form__submit">Submit RFQ →</button>
+
+        <div class="form__success">
+          ✓ Your RFQ has been submitted successfully! We'll connect you with verified providers within 24 hours.
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Contact Info -->
+  <section class="section section--alt">
+    <div class="container">
+      <div class="section__header">
+        <h2 class="section__title">Other Ways to Reach Us</h2>
+      </div>
+      <div class="grid grid--3">
+        <div class="tool-card">
+          <div class="tool-card__icon">📧</div>
+          <h3 class="tool-card__title">Email</h3>
+          <p class="tool-card__desc">hello@maritimeedge.com<br>We respond within 24 hours.</p>
+        </div>
+        <div class="tool-card">
+          <div class="tool-card__icon">💬</div>
+          <h3 class="tool-card__title">Live Chat</h3>
+          <p class="tool-card__desc">Available Monday – Friday<br>9:00 AM – 6:00 PM (GMT+8)</p>
+        </div>
+        <div class="tool-card">
+          <div class="tool-card__icon">🏢</div>
+          <h3 class="tool-card__title">Office</h3>
+          <p class="tool-card__desc">MaritimeEdge HQ<br>Singapore, 018989</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div>
+          <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
+          <p class="footer__desc">The leading platform for shipping intelligence, logistics news, and trade tools — empowering global commerce since 2024.</p>
+          <div class="footer__social">
+            <a href="#" aria-label="Twitter">𝕏</a>
+            <a href="#" aria-label="LinkedIn">in</a>
+            <a href="#" aria-label="YouTube">▶</a>
+          </div>
+        </div>
+        <div>
+          <h4 class="footer__heading">Platform</h4>
+          <ul class="footer__links">
+            <li><a href="news.html">News</a></li>
+            <li><a href="jobs.html">Jobs</a></li>
+            <li><a href="tools.html">Tools</a></li>
+            <li><a href="directory.html">Directory</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Company</h4>
+          <ul class="footer__links">
+            <li><a href="#">About Us</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="#">Advertise</a></li>
+            <li><a href="#">Careers</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Resources</h4>
+          <ul class="footer__links">
+            <li><a href="#">API Docs</a></li>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Partners</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>&copy; 2026 MaritimeEdge. All rights reserved.</span>
+        <div class="footer__bottom-links">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

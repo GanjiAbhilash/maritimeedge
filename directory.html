@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Provider Directory — MaritimeEdge</title>
+  <meta name="description" content="Browse verified logistics providers, freight forwarders, customs brokers, and shipping lines. Find trusted partners for your supply chain.">
+  <meta property="og:title" content="Provider Directory — MaritimeEdge">
+  <meta property="og:description" content="Find verified logistics providers and shipping partners worldwide.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Navbar -->
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="navbar__logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0052CC" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0052CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/></svg>
+        Maritime<span>Edge</span>
+      </a>
+      <div class="navbar__menu">
+        <a href="index.html" class="navbar__link">Home</a>
+        <a href="news.html" class="navbar__link">News</a>
+        <a href="jobs.html" class="navbar__link">Jobs</a>
+        <a href="tools.html" class="navbar__link">Tools</a>
+        <a href="directory.html" class="navbar__link">Directory</a>
+        <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
+      </div>
+      <button class="navbar__toggle" aria-label="Toggle menu">
+        <span></span><span></span><span></span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Page Header -->
+  <section class="page-header">
+    <div class="container">
+      <h1 class="page-header__title">Logistics Provider Directory</h1>
+      <p class="page-header__desc">Browse verified freight forwarders, shipping lines, customs brokers, and warehouse operators.</p>
+    </div>
+  </section>
+
+  <!-- Directory Content -->
+  <section class="section">
+    <div class="container">
+      <div class="filter-bar">
+        <button class="filter-bar__btn filter-bar__btn--active" data-filter="all">All</button>
+        <button class="filter-bar__btn" data-filter="forwarder">Freight Forwarders</button>
+        <button class="filter-bar__btn" data-filter="carrier">Shipping Lines</button>
+        <button class="filter-bar__btn" data-filter="broker">Customs Brokers</button>
+        <button class="filter-bar__btn" data-filter="warehouse">Warehousing</button>
+      </div>
+      <div class="grid grid--3">
+        <div class="dir-card" data-category="forwarder">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">KN</div>
+            <div>
+              <h3 class="dir-card__name">Kuehne+Nagel</h3>
+              <p class="dir-card__type">Freight Forwarder</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Schindellegi, Switzerland</div>
+            <div class="dir-card__info-item">🌍 109 countries</div>
+            <div class="dir-card__info-item">⭐ 4.7 / 5.0 (320 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Ocean Freight</span>
+            <span class="dir-card__tag">Air Freight</span>
+            <span class="dir-card__tag">Contract Logistics</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="carrier">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">MK</div>
+            <div>
+              <h3 class="dir-card__name">Maersk</h3>
+              <p class="dir-card__type">Shipping Line</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Copenhagen, Denmark</div>
+            <div class="dir-card__info-item">🌍 130 countries</div>
+            <div class="dir-card__info-item">⭐ 4.5 / 5.0 (540 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Container Shipping</span>
+            <span class="dir-card__tag">Inland Transport</span>
+            <span class="dir-card__tag">Digital Solutions</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="broker">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">LH</div>
+            <div>
+              <h3 class="dir-card__name">Livingston International</h3>
+              <p class="dir-card__type">Customs Broker</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Toronto, Canada</div>
+            <div class="dir-card__info-item">🌍 US & Canada</div>
+            <div class="dir-card__info-item">⭐ 4.6 / 5.0 (180 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Customs Clearance</span>
+            <span class="dir-card__tag">Trade Compliance</span>
+            <span class="dir-card__tag">Duty Drawback</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="warehouse">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">PL</div>
+            <div>
+              <h3 class="dir-card__name">Prologis</h3>
+              <p class="dir-card__type">Warehouse Operator</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 San Francisco, US</div>
+            <div class="dir-card__info-item">🌍 19 countries</div>
+            <div class="dir-card__info-item">⭐ 4.8 / 5.0 (210 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Warehousing</span>
+            <span class="dir-card__tag">Cold Storage</span>
+            <span class="dir-card__tag">Distribution</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="forwarder">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">DH</div>
+            <div>
+              <h3 class="dir-card__name">DHL Global Forwarding</h3>
+              <p class="dir-card__type">Freight Forwarder</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Bonn, Germany</div>
+            <div class="dir-card__info-item">🌍 220+ countries</div>
+            <div class="dir-card__info-item">⭐ 4.4 / 5.0 (610 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Ocean Freight</span>
+            <span class="dir-card__tag">Air Freight</span>
+            <span class="dir-card__tag">Road Freight</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="carrier">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">CM</div>
+            <div>
+              <h3 class="dir-card__name">CMA CGM Group</h3>
+              <p class="dir-card__type">Shipping Line</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Marseille, France</div>
+            <div class="dir-card__info-item">🌍 160 countries</div>
+            <div class="dir-card__info-item">⭐ 4.3 / 5.0 (380 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Container Shipping</span>
+            <span class="dir-card__tag">Intermodal</span>
+            <span class="dir-card__tag">CEVA Logistics</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="broker">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">EX</div>
+            <div>
+              <h3 class="dir-card__name">Expeditors</h3>
+              <p class="dir-card__type">Customs Broker</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Seattle, US</div>
+            <div class="dir-card__info-item">🌍 60+ countries</div>
+            <div class="dir-card__info-item">⭐ 4.5 / 5.0 (290 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Brokerage</span>
+            <span class="dir-card__tag">Freight Forwarding</span>
+            <span class="dir-card__tag">Supply Chain</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="warehouse">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">GW</div>
+            <div>
+              <h3 class="dir-card__name">GLP Capital Partners</h3>
+              <p class="dir-card__type">Warehouse Operator</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 Singapore</div>
+            <div class="dir-card__info-item">🌍 17 countries</div>
+            <div class="dir-card__info-item">⭐ 4.6 / 5.0 (150 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Warehousing</span>
+            <span class="dir-card__tag">Data Centers</span>
+            <span class="dir-card__tag">Logistics Parks</span>
+          </div>
+        </div>
+        <div class="dir-card" data-category="forwarder">
+          <div class="dir-card__header">
+            <div class="dir-card__avatar">FP</div>
+            <div>
+              <h3 class="dir-card__name">Flexport</h3>
+              <p class="dir-card__type">Freight Forwarder</p>
+            </div>
+          </div>
+          <div class="dir-card__info">
+            <div class="dir-card__info-item">📍 San Francisco, US</div>
+            <div class="dir-card__info-item">🌍 Global</div>
+            <div class="dir-card__info-item">⭐ 4.6 / 5.0 (420 reviews)</div>
+          </div>
+          <div class="dir-card__tags">
+            <span class="dir-card__tag">Digital Freight</span>
+            <span class="dir-card__tag">Ocean & Air</span>
+            <span class="dir-card__tag">Trucking</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="newsletter">
+    <div class="container">
+      <div class="newsletter__content">
+        <h2 class="newsletter__title">List Your Company</h2>
+        <p class="newsletter__desc">Join 8,500+ verified logistics providers on MaritimeEdge.</p>
+      </div>
+      <div>
+        <a href="contact.html" class="newsletter__btn" style="text-decoration:none; display:inline-block;">Get Listed →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div>
+          <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
+          <p class="footer__desc">The leading platform for shipping intelligence, logistics news, and trade tools — empowering global commerce since 2024.</p>
+          <div class="footer__social">
+            <a href="#" aria-label="Twitter">𝕏</a>
+            <a href="#" aria-label="LinkedIn">in</a>
+            <a href="#" aria-label="YouTube">▶</a>
+          </div>
+        </div>
+        <div>
+          <h4 class="footer__heading">Platform</h4>
+          <ul class="footer__links">
+            <li><a href="news.html">News</a></li>
+            <li><a href="jobs.html">Jobs</a></li>
+            <li><a href="tools.html">Tools</a></li>
+            <li><a href="directory.html">Directory</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Company</h4>
+          <ul class="footer__links">
+            <li><a href="#">About Us</a></li>
+            <li><a href="contact.html">Contact</a></li>
+            <li><a href="#">Advertise</a></li>
+            <li><a href="#">Careers</a></li>
+          </ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Resources</h4>
+          <ul class="footer__links">
+            <li><a href="#">API Docs</a></li>
+            <li><a href="#">Help Center</a></li>
+            <li><a href="#">Blog</a></li>
+            <li><a href="#">Partners</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>&copy; 2026 MaritimeEdge. All rights reserved.</span>
+        <div class="footer__bottom-links">
+          <a href="#">Privacy Policy</a>
+          <a href="#">Terms of Service</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>
