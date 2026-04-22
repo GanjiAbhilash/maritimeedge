@@ -7,18 +7,142 @@
 
 ## Table of Contents
 
-1. [Project Overview](#project-overview)
-2. [Technology Stack](#technology-stack)
-3. [File Structure](#file-structure)
-4. [Design System](#design-system)
-5. [Page-by-Page Guide](#page-by-page-guide)
-6. [News & Article Writing Guidelines](#news--article-writing-guidelines)
-7. [Adding New Articles](#adding-new-articles)
-8. [Images & Media](#images--media)
-9. [Forms & Backend](#forms--backend)
-10. [Deployment](#deployment)
-11. [SEO & Metadata](#seo--metadata)
-12. [Accessibility & Performance](#accessibility--performance)
+1. [Project Rules & Checks](#project-rules--checks)
+2. [Project Overview](#project-overview)
+3. [Technology Stack](#technology-stack)
+4. [File Structure](#file-structure)
+5. [Design System](#design-system)
+6. [Page-by-Page Guide](#page-by-page-guide)
+7. [News & Article Writing Guidelines](#news--article-writing-guidelines)
+8. [Adding New Articles](#adding-new-articles)
+9. [Images & Media](#images--media)
+10. [Forms & Backend](#forms--backend)
+11. [Deployment](#deployment)
+12. [SEO & Metadata](#seo--metadata)
+13. [Accessibility & Performance](#accessibility--performance)
+
+---
+
+## Project Rules & Checks
+
+### 🚫 NEVER Assume — NEVER Fabricate
+
+These rules are **non-negotiable** and apply to every change made to this project.
+
+#### Data Integrity
+- **NEVER create fake data.** Every company name, port name, circular number, date, URL, phone number, email, and statistic must be **real and verifiable**.
+- **NEVER invent CBIC circulars, DGFT notifications, or government references.** If you don't know the exact circular number, say so — do not guess.
+- **NEVER fabricate company details.** Every company in the directory must exist. Verify the company name, headquarters city, founding year, website URL, and services before adding.
+- **NEVER make up statistics** (TEU volumes, port rankings, rate percentages). If data is needed, cite the source or mark it as `[VERIFY]`.
+- **Placeholder data is only acceptable** when clearly marked with `[PLACEHOLDER]` or `XXXX` (e.g., phone: `+91 22 XXXX XXXX`). Never present placeholders as real data.
+
+#### URLs & Links
+- **NEVER guess or fabricate URLs.** Every external link must point to a real, working website.
+- **Verify all website URLs** before adding them to directory cards or article references.
+- **External links must use `target="_blank" rel="noopener"`** for security and UX.
+- **Internal links must use correct relative paths** — `../` prefix for articles linking to root pages.
+- **Anchor links (`href="#"`)** are only acceptable for features not yet built. Add a `<!-- TODO: Link to real page -->` comment.
+
+#### News & Articles
+- **NEVER write speculative news.** Every article must be based on a real event, circular, notification, or verifiable development.
+- **Every date must be real.** Do not assign arbitrary dates to articles.
+- **Every circular/notification number must be accurate** (e.g., "CBIC Circular No. 21/2026-Customs dated 15 April 2026").
+- **Do not paraphrase government circulars inaccurately.** If summarizing, preserve the intent and key provisions faithfully.
+
+### ✅ Validation Checks
+
+Before any commit or deployment, validate:
+
+#### HTML Validation
+- [ ] All pages have `<!DOCTYPE html>`, `<meta charset="UTF-8">`, `<meta name="viewport">`
+- [ ] All `<img>` tags have `alt` attributes (descriptive, not empty)
+- [ ] All `<a>` tags have valid `href` values
+- [ ] All `<form>` elements have `id` attributes matching JS selectors
+- [ ] No duplicate `id` attributes on any page
+- [ ] All pages include `<link rel="stylesheet" href="css/styles.css">` (or `../css/styles.css` for articles)
+- [ ] All pages include `<script src="js/script.js">` (or `../js/script.js` for articles)
+
+#### CSS Validation
+- [ ] No undefined CSS variables used in HTML inline styles
+- [ ] All CSS classes referenced in HTML exist in `styles.css`
+- [ ] Responsive breakpoints work at 768px and 480px
+- [ ] No `!important` overrides unless absolutely necessary
+
+#### JavaScript Validation
+- [ ] `GOOGLE_SCRIPT_URL` constant matches the deployed Apps Script URL
+- [ ] All `document.querySelector` selectors match existing HTML elements
+- [ ] Form submissions handle errors gracefully (try/catch with user feedback)
+- [ ] No `console.log` statements in production code
+- [ ] IntersectionObserver targets (`.fade-up`, `.stagger-children`) exist in HTML
+
+#### Cross-Page Consistency
+- [ ] Navbar links are identical across all pages (correct active state per page)
+- [ ] Footer content is identical across all pages
+- [ ] Newsletter form exists on every page with id `newsletter-form`
+- [ ] SVG logo uses `stroke="#0EA5E9"` consistently (not old `#0052CC`)
+- [ ] All pages link to Vasera Global with correct URL (`https://vaseraglobal.com`)
+
+#### Image Checks
+- [ ] All Unsplash URLs use the format `https://images.unsplash.com/photo-[ID]?w=[WIDTH]&q=[QUALITY]`
+- [ ] No broken image URLs — verify images load before committing
+- [ ] All below-fold images have `loading="lazy"`
+- [ ] Company logos use Clearbit API with `onerror` text fallback
+- [ ] Article hero images exist in all article pages
+
+#### Directory Checks
+- [ ] Every company listed is a real, operating company
+- [ ] Company names match their official legal/trading name
+- [ ] Website URLs are correct and currently active
+- [ ] Founding years are accurate
+- [ ] HQ locations are accurate
+- [ ] Service descriptions reflect actual services offered
+- [ ] `data-category` matches filter bar options
+
+#### Security
+- [ ] No API keys, tokens, or secrets in client-side code
+- [ ] Google Apps Script URL is the only external endpoint
+- [ ] All external links use `rel="noopener"` with `target="_blank"`
+- [ ] Form inputs are validated client-side (required fields, email format)
+- [ ] No inline `onclick` or `javascript:` URIs — all JS in `script.js`
+
+### 🔄 Compatibility
+
+#### Browser Support
+- Chrome 90+, Firefox 90+, Safari 15+, Edge 90+
+- iOS Safari 15+, Chrome for Android
+- No IE11 support required
+
+#### Key Compatibility Rules
+- **No ES modules** — script loaded with plain `<script>` tag
+- **No CSS nesting** — use flat selectors for Safari compatibility
+- **No `@layer`** — not supported in older Safari versions
+- **`backdrop-filter`** — used for glassmorphism; has `-webkit-` prefix in CSS
+- **IntersectionObserver** — supported in all target browsers
+- **`fetch` API** — supported in all target browsers
+- **CSS Grid and Flexbox** — fully supported
+- **Google Fonts `display=swap`** — ensures text renders during font load
+
+#### Mobile Responsiveness
+- All pages must be fully functional at 320px width
+- Touch targets must be at least 44x44px
+- Mobile nav toggle must work without JavaScript errors
+- Forms must be usable on mobile keyboards (correct input types)
+
+### 📋 Pre-Deployment Checklist
+
+```
+Before pushing to main:
+1. Open every HTML page in a browser and verify rendering
+2. Test mobile nav toggle on each page
+3. Test newsletter form submission
+4. Test RFQ form submission (on contact.html)
+5. Verify all news card links go to correct articles
+6. Check all article "← All News" and "Get Quote →" links work
+7. Verify filter buttons work on news.html, jobs.html, directory.html
+8. Test scroll animations fire on index.html
+9. Check no console errors on any page
+10. Verify all images load (check Network tab for 404s)
+```
 
 ---
 
