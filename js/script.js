@@ -1,13 +1,13 @@
 // ============================================================
 // MaritimeEdge — Client-side JavaScript
-// Google Sheets integration for Newsletter + RFQ
+// Scroll animations, Navigation, Google Sheets integration
 // ============================================================
 
-// Replace with your deployed Google Apps Script Web App URL
 const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwo2UBKVfrkAZmceIZPzhyVB36FqhDiC6SS8qWt53xhtfNnrcolvl8jhOGX5p6pO_8zAw/exec';
 
-// ─── Mobile Navigation Toggle ────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+
+  // ─── Mobile Navigation Toggle ────────────────────────────
   const toggle = document.querySelector('.navbar__toggle');
   const menu = document.querySelector('.navbar__menu');
 
@@ -15,13 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
     toggle.addEventListener('click', () => {
       menu.classList.toggle('navbar__menu--open');
       toggle.classList.toggle('navbar__toggle--active');
+      document.body.style.overflow = menu.classList.contains('navbar__menu--open') ? 'hidden' : '';
     });
 
-    // Close menu when a link is clicked
-    menu.querySelectorAll('.navbar__link').forEach(link => {
+    menu.querySelectorAll('.navbar__link, .navbar__cta').forEach(link => {
       link.addEventListener('click', () => {
         menu.classList.remove('navbar__menu--open');
         toggle.classList.remove('navbar__toggle--active');
+        document.body.style.overflow = '';
       });
     });
   }
@@ -29,10 +30,64 @@ document.addEventListener('DOMContentLoaded', () => {
   // ─── Navbar Scroll Effect ──────────────────────────────────
   const navbar = document.querySelector('.navbar');
   if (navbar) {
+    let lastScroll = 0;
     window.addEventListener('scroll', () => {
       navbar.classList.toggle('navbar--scrolled', window.scrollY > 50);
-    });
+      lastScroll = window.scrollY;
+    }, { passive: true });
   }
+
+  // ─── Scroll Reveal Animations ──────────────────────────────
+  const observerOptions = {
+    threshold: 0.1,
+    rootMargin: '0px 0px -60px 0px'
+  };
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('visible');
+        observer.unobserve(entry.target);
+      }
+    });
+  }, observerOptions);
+
+  document.querySelectorAll('.fade-up, .stagger-children').forEach(el => {
+    observer.observe(el);
+  });
+
+  // ─── Counter Animation for Hero Stats ──────────────────────
+  const counterObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const el = entry.target;
+        const text = el.textContent;
+        const match = text.match(/^(\d+)/);
+        if (match) {
+          const target = parseInt(match[1], 10);
+          const suffix = text.replace(match[1], '');
+          const duration = 1500;
+          const start = performance.now();
+
+          const animate = (now) => {
+            const elapsed = now - start;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = Math.round(target * eased);
+            el.textContent = current + suffix;
+            if (progress < 1) requestAnimationFrame(animate);
+          };
+
+          requestAnimationFrame(animate);
+        }
+        counterObserver.unobserve(el);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('.hero__stat-value').forEach(el => {
+    counterObserver.observe(el);
+  });
 
   // ─── Filter Buttons ────────────────────────────────────────
   const filterBtns = document.querySelectorAll('.filter-bar__btn');
@@ -41,17 +96,25 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.addEventListener('click', () => {
         const filter = btn.dataset.filter;
 
-        // Update active button
         filterBtns.forEach(b => b.classList.remove('filter-bar__btn--active'));
         btn.classList.add('filter-bar__btn--active');
 
-        // Filter cards
         const cards = btn.closest('.container').querySelectorAll('[data-category]');
-        cards.forEach(card => {
-          if (filter === 'all' || card.dataset.category === filter) {
+        cards.forEach((card, i) => {
+          const show = filter === 'all' || card.dataset.category === filter;
+          card.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+          if (show) {
             card.style.display = '';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            setTimeout(() => {
+              card.style.opacity = '1';
+              card.style.transform = 'translateY(0)';
+            }, i * 50);
           } else {
-            card.style.display = 'none';
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(10px)';
+            setTimeout(() => { card.style.display = 'none'; }, 300);
           }
         });
       });
@@ -70,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!email) return;
 
-      // Loading state
       const originalText = submitBtn.textContent;
       submitBtn.textContent = 'Subscribing...';
       submitBtn.disabled = true;
@@ -88,21 +150,24 @@ document.addEventListener('DOMContentLoaded', () => {
           })
         });
 
-        // Since no-cors returns opaque response, assume success
         emailInput.value = '';
         submitBtn.textContent = '✓ Subscribed!';
-        submitBtn.style.background = '#00875A';
+        submitBtn.style.background = '#10B981';
+        submitBtn.style.color = '#fff';
         setTimeout(() => {
           submitBtn.textContent = originalText;
           submitBtn.style.background = '';
+          submitBtn.style.color = '';
           submitBtn.disabled = false;
         }, 3000);
       } catch (error) {
         submitBtn.textContent = 'Error — Try Again';
-        submitBtn.style.background = '#DE350B';
+        submitBtn.style.background = '#EF4444';
+        submitBtn.style.color = '#fff';
         setTimeout(() => {
           submitBtn.textContent = originalText;
           submitBtn.style.background = '';
+          submitBtn.style.color = '';
           submitBtn.disabled = false;
         }, 3000);
       }
@@ -120,7 +185,6 @@ document.addEventListener('DOMContentLoaded', () => {
       submitBtn.textContent = 'Submitting...';
       submitBtn.disabled = true;
 
-      // Collect all form data
       const formData = {
         type: 'rfq',
         fullName: rfqForm.querySelector('#fullName').value.trim(),
@@ -146,19 +210,18 @@ document.addEventListener('DOMContentLoaded', () => {
           body: JSON.stringify(formData)
         });
 
-        // Show success
         rfqForm.innerHTML = `
-          <div style="text-align:center;padding:40px 0;">
-            <div style="font-size:3rem;margin-bottom:16px;">✅</div>
-            <h2 class="form__title">Quote Request Submitted!</h2>
-            <p style="color:var(--text-secondary);margin-top:8px;">Thank you, ${formData.fullName}. Our verified freight forwarders will respond to <strong>${formData.email}</strong> within 24 business hours.</p>
-            <p style="color:var(--text-secondary);margin-top:16px;font-size:0.9rem;">Route: <strong>${formData.origin}</strong> → <strong>${formData.destination}</strong> (${formData.shipmentType})</p>
-            <a href="index.html" class="btn btn--primary" style="margin-top:24px;">Back to Home</a>
+          <div style="text-align:center;padding:48px 0;">
+            <div style="width:64px;height:64px;border-radius:50%;background:var(--success-light);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;">✓</div>
+            <h2 class="form__title" style="margin-bottom:12px;">Quote Request Submitted!</h2>
+            <p style="color:var(--text-secondary);margin-top:8px;line-height:1.7;">Thank you, <strong>${formData.fullName}</strong>. Our verified freight forwarders will respond to <strong>${formData.email}</strong> within 24 business hours.</p>
+            <p style="color:var(--text-light);margin-top:16px;font-size:0.9rem;">Route: <strong>${formData.origin}</strong> → <strong>${formData.destination}</strong> (${formData.shipmentType})</p>
+            <a href="index.html" class="btn btn--primary" style="margin-top:28px;">Back to Home</a>
           </div>
         `;
       } catch (error) {
         submitBtn.textContent = 'Error — Try Again';
-        submitBtn.style.background = '#DE350B';
+        submitBtn.style.background = '#EF4444';
         setTimeout(() => {
           submitBtn.textContent = originalText;
           submitBtn.style.background = '';

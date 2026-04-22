@@ -15,7 +15,7 @@
   <nav class="navbar">
     <div class="container">
       <a href="index.html" class="navbar__logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0052CC" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0052CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0EA5E9" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/></svg>
         Maritime<span>Edge</span>
       </a>
       <div class="navbar__menu">
@@ -32,6 +32,7 @@
 
   <section class="page-header">
     <div class="container">
+      <div class="section__eyebrow" style="color:rgba(255,255,255,0.7);">Request Quote</div>
       <h1 class="page-header__title">Request a Sea Freight Quote</h1>
       <p class="page-header__desc">Get competitive ocean freight rates from Indian ports to any destination worldwide. Our verified providers will respond within 24 hours.</p>
     </div>
@@ -136,15 +137,15 @@
 
             <div class="form__group">
               <label class="form__label" for="message">Additional Requirements</label>
-              <textarea class="form__input form__input--textarea" id="message" name="message" rows="4" placeholder="Any special requirements — dangerous goods, temperature control, insurance, customs clearance needed, etc."></textarea>
+              <textarea class="form__input" id="message" name="message" rows="4" placeholder="Any special requirements — dangerous goods, temperature control, insurance, customs clearance needed, etc." style="resize:vertical;min-height:120px;"></textarea>
             </div>
 
-            <button type="submit" class="btn btn--primary btn--lg form__submit">Submit Quote Request →</button>
+            <button type="submit" class="btn btn--primary btn--lg form__submit" style="width:100%;justify-content:center;">Submit Quote Request →</button>
           </form>
         </div>
 
         <div>
-          <div class="form" style="background: var(--bg-secondary); position: sticky; top: 100px;">
+          <div class="form" style="position: sticky; top: 100px;">
             <h2 class="form__title">Contact Information</h2>
             <div style="margin-bottom: 24px;">
               <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">📧 Email</h3>
@@ -156,20 +157,20 @@
             </div>
             <div style="margin-bottom: 24px;">
               <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">🏢 Parent Company</h3>
-              <p style="color: var(--text-secondary);">MaritimeEdge is a <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color: var(--primary);">Vasera Global</a> initiative, bringing digital transformation to Indian sea logistics.</p>
+              <p style="color: var(--text-secondary);">MaritimeEdge is a <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color: var(--accent-dark);">Vasera Global</a> initiative, bringing digital transformation to Indian sea logistics.</p>
             </div>
             <div style="margin-bottom: 24px;">
               <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">⏰ Response Time</h3>
               <p style="color: var(--text-secondary);">Our verified freight forwarders typically respond within 24 business hours with competitive quotes.</p>
             </div>
-            <hr style="border: 1px solid var(--border); margin: 24px 0;">
-            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 12px;">Why MaritimeEdge?</h3>
-            <ul style="color: var(--text-secondary); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 8px;">
-              <li>✅ 500+ verified Indian logistics providers</li>
-              <li>✅ Quotes from multiple forwarders in one request</li>
-              <li>✅ All 13 major Indian ports covered</li>
-              <li>✅ Transparent pricing — no hidden fees</li>
-              <li>✅ End-to-end support including customs clearance</li>
+            <hr style="border: 1px solid var(--border-light); margin: 24px 0;">
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">Why MaritimeEdge?</h3>
+            <ul style="color: var(--text-secondary); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px;">
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> 500+ verified Indian logistics providers</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> Quotes from multiple forwarders in one request</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> All 13 major Indian ports covered</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> Transparent pricing — no hidden fees</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> End-to-end support including customs clearance</li>
             </ul>
           </div>
         </div>
@@ -196,7 +197,7 @@
         <div>
           <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
           <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
-          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#00B8D9;">Vasera Global</a> initiative</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#0EA5E9;">Vasera Global</a> initiative</p>
           <div class="footer__social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="YouTube">▶</a></div>
         </div>
         <div>

@@ -15,7 +15,7 @@
   <nav class="navbar">
     <div class="container">
       <a href="index.html" class="navbar__logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0052CC" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0052CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0EA5E9" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/></svg>
         Maritime<span>Edge</span>
       </a>
       <div class="navbar__menu">
@@ -23,7 +23,7 @@
         <a href="news.html" class="navbar__link">News</a>
         <a href="jobs.html" class="navbar__link">Jobs</a>
         <a href="tools.html" class="navbar__link">Tools</a>
-        <a href="directory.html" class="navbar__link">Directory</a>
+        <a href="directory.html" class="navbar__link navbar__link--active">Directory</a>
         <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
       </div>
       <button class="navbar__toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
@@ -32,6 +32,7 @@
 
   <section class="page-header">
     <div class="container">
+      <div class="section__eyebrow" style="color:rgba(255,255,255,0.7);">Verified Providers</div>
       <h1 class="page-header__title">Indian Logistics Provider Directory</h1>
       <p class="page-header__desc">Verified freight forwarders, shipping lines, customs brokers, and CFS/ICD operators across India.</p>
     </div>
@@ -46,124 +47,209 @@
         <button class="filter-bar__btn" data-filter="cha">CHA / Customs Brokers</button>
         <button class="filter-bar__btn" data-filter="cfs">CFS / ICD</button>
       </div>
-      <div class="grid grid--3">
+      <div class="grid grid--3 stagger-children">
         <div class="dir-card" data-category="forwarder">
-          <div class="dir-card__logo">🏢</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/allcargologistics.com" alt="Allcargo Logistics logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.4rem;font-weight:800;color:var(--primary)>ALLCARGO</span>'">
+          </div>
           <div class="dir-card__body">
             <h3 class="dir-card__title">Allcargo Logistics</h3>
-            <p class="dir-card__category">Freight Forwarder</p>
-            <p class="dir-card__desc">India's largest integrated logistics company. LCL consolidation, FCL, customs clearance, and project logistics. Pan-India presence across all major ports.</p>
+            <p class="dir-card__category">Freight Forwarder / 3PL</p>
+            <p class="dir-card__desc">India's largest integrated logistics company. Offers LCL consolidation (world's 2nd largest), FCL forwarding, customs clearance, contract logistics, and project cargo. Operates ECU Worldwide for global NVOCC services.</p>
             <div class="dir-card__meta">
-              <span>📍 Mumbai (HQ)</span>
-              <span>🌐 allcargologistics.com</span>
+              <span>📍 Mumbai, Maharashtra (HQ) · Pan-India</span>
+              <span>📅 Founded 1993 · Listed on BSE/NSE</span>
+              <span>🌐 <a href="https://www.allcargologistics.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">allcargologistics.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="shipping-line">
-          <div class="dir-card__logo">🚢</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/shipindia.com" alt="Shipping Corporation of India logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.2rem;font-weight:800;color:var(--primary)>SCI</span>'">
+          </div>
           <div class="dir-card__body">
             <h3 class="dir-card__title">Shipping Corporation of India (SCI)</h3>
-            <p class="dir-card__category">Shipping Line</p>
-            <p class="dir-card__desc">India's national shipping line. Container and bulk services from Indian ports to the Middle East, Africa, Far East, and Europe.</p>
+            <p class="dir-card__category">Shipping Line (Government)</p>
+            <p class="dir-card__desc">India's national flag carrier shipping line under Ministry of Shipping. Operates container, bulk, tanker, and offshore vessels. Serves Middle East, Africa, Far East, and European trade lanes from all major Indian ports.</p>
             <div class="dir-card__meta">
-              <span>📍 Mumbai (HQ)</span>
-              <span>🌐 shipindia.com</span>
+              <span>📍 Nariman Point, Mumbai (HQ)</span>
+              <span>📅 Founded 1961 · Govt. of India Enterprise</span>
+              <span>🌐 <a href="https://www.shipindia.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">shipindia.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="forwarder">
-          <div class="dir-card__logo">🏢</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/jmbaxi.com" alt="J M Baxi & Co logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.2rem;font-weight:800;color:var(--primary)>JM BAXI</span>'">
+          </div>
           <div class="dir-card__body">
             <h3 class="dir-card__title">J M Baxi &amp; Co</h3>
-            <p class="dir-card__category">Freight Forwarder / Port Services</p>
-            <p class="dir-card__desc">Leading Indian shipping agent and port operator. Stevedoring, CFS operations, freight forwarding, and customs clearance at JNPT and other ports.</p>
+            <p class="dir-card__category">Shipping Agent / Port Operator</p>
+            <p class="dir-card__desc">One of India's oldest maritime companies. Provides shipping agency, stevedoring, CFS operations, freight forwarding, and container terminal operations at JNPT, Vizag, and other ports. Also runs Boxco Logistics for container services.</p>
             <div class="dir-card__meta">
-              <span>📍 Mumbai / JNPT</span>
-              <span>🌐 jmbaxi.com</span>
+              <span>📍 Mumbai (HQ) · JNPT · Vizag · Kolkata</span>
+              <span>📅 Founded 1916 · 100+ years in shipping</span>
+              <span>🌐 <a href="https://www.jmbaxi.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">jmbaxi.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="cfs">
-          <div class="dir-card__logo">📦</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/gatewaydistriparks.com" alt="Gateway Distriparks logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.1rem;font-weight:800;color:var(--primary)>GATEWAY</span>'">
+          </div>
           <div class="dir-card__body">
-            <h3 class="dir-card__title">Gateway Distriparks</h3>
-            <p class="dir-card__category">CFS / ICD Operator</p>
-            <p class="dir-card__desc">Major CFS and ICD operator at JNPT and across India. Container handling, warehousing, and rail logistics for import/export cargo.</p>
+            <h3 class="dir-card__title">Gateway Distriparks (GDL)</h3>
+            <p class="dir-card__category">CFS / ICD / Rail Logistics</p>
+            <p class="dir-card__desc">Leading container freight station and inland container depot operator at JNPT. Provides rail-linked ICD services, cold chain logistics (via Snowman Logistics), and container warehousing across multiple locations.</p>
             <div class="dir-card__meta">
-              <span>📍 JNPT / Pan-India</span>
-              <span>🌐 gatewaydistriparks.com</span>
+              <span>📍 JNPT, Viramgam, Faridabad, Ludhiana</span>
+              <span>📅 Founded 1994 · Listed on BSE/NSE</span>
+              <span>🌐 <a href="https://www.gatewaydistriparks.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">gatewaydistriparks.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="forwarder">
-          <div class="dir-card__logo">🏢</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/cogoport.com" alt="Cogoport logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.2rem;font-weight:800;color:var(--accent-dark)>COGOPORT</span>'">
+          </div>
           <div class="dir-card__body">
             <h3 class="dir-card__title">Cogoport</h3>
             <p class="dir-card__category">Digital Freight Forwarder</p>
-            <p class="dir-card__desc">India's leading digital freight platform. Instant ocean freight quotes, online booking, and end-to-end shipment tracking from Indian ports.</p>
+            <p class="dir-card__desc">India's leading digital freight platform backed by Accel & Tiger Global. Offers instant ocean freight quotes, online booking, real-time tracking, customs clearance, and trade financing — all through a single dashboard.</p>
             <div class="dir-card__meta">
-              <span>📍 Mumbai (HQ) / Remote</span>
-              <span>🌐 cogoport.com</span>
+              <span>📍 Mumbai (HQ) · Delhi · Chennai · Global</span>
+              <span>📅 Founded 2016 · Series E funded</span>
+              <span>🌐 <a href="https://www.cogoport.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">cogoport.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="shipping-line">
-          <div class="dir-card__logo">🚢</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/maersk.com" alt="Maersk logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.4rem;font-weight:800;color:#42b0d5>MAERSK</span>'">
+          </div>
           <div class="dir-card__body">
             <h3 class="dir-card__title">Maersk India</h3>
-            <p class="dir-card__category">Shipping Line</p>
-            <p class="dir-card__desc">World's largest container shipping line with strong India operations. Regular services from JNPT, Mundra, Chennai, Kochi, and Kolkata worldwide.</p>
+            <p class="dir-card__category">Shipping Line / Integrated Logistics</p>
+            <p class="dir-card__desc">World's largest container shipping line with extensive India operations. Weekly sailings from JNPT, Mundra, Pipavav, Chennai, Kochi, and Kolkata to 100+ countries. Also offers end-to-end logistics, warehousing, and customs brokerage.</p>
             <div class="dir-card__meta">
-              <span>📍 Mumbai / Pan-India</span>
-              <span>🌐 maersk.com</span>
+              <span>📍 Mumbai (India HQ) · All major Indian ports</span>
+              <span>📅 In India since 1920s · HQ: Copenhagen</span>
+              <span>🌐 <a href="https://www.maersk.com/local-information/india" target="_blank" rel="noopener" style="color:var(--accent-dark)">maersk.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="cha">
-          <div class="dir-card__logo">📋</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/jeena.com" alt="Jeena & Company logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.2rem;font-weight:800;color:var(--primary)>JEENA</span>'">
+          </div>
           <div class="dir-card__body">
-            <h3 class="dir-card__title">Balaji Customs House Agency</h3>
-            <p class="dir-card__category">CHA / Customs Broker</p>
-            <p class="dir-card__desc">Experienced customs house agent at Chennai Port and Tuticorin. Specializing in import clearance, EXIM documentation, and DGFT licensing.</p>
+            <h3 class="dir-card__title">Jeena &amp; Company</h3>
+            <p class="dir-card__category">CHA / Customs Broker / Freight Forwarder</p>
+            <p class="dir-card__desc">One of India's oldest customs house agents and freight forwarders. Licensed CHA operations at JNPT, Mumbai Air Cargo, Chennai, Delhi, and other locations. Provides customs clearance, freight forwarding, and project logistics.</p>
             <div class="dir-card__meta">
-              <span>📍 Chennai</span>
-              <span>📞 +91 44 XXXX XXXX</span>
+              <span>📍 Mumbai (HQ) · Delhi · Chennai · Kolkata</span>
+              <span>📅 Founded 1900 · 125+ years in business</span>
+              <span>🌐 <a href="https://www.jeena.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">jeena.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="cfs">
-          <div class="dir-card__logo">📦</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/adaniports.com" alt="Adani Ports and SEZ logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.2rem;font-weight:800;color:var(--primary)>ADANI</span>'">
+          </div>
           <div class="dir-card__body">
-            <h3 class="dir-card__title">Adani Logistics</h3>
-            <p class="dir-card__category">CFS / ICD / Port Operator</p>
-            <p class="dir-card__desc">Integrated logistics arm of Adani Group. CFS, ICD, and warehousing at Mundra, Hazira, and other Gujarat-based ports with rail connectivity.</p>
+            <h3 class="dir-card__title">Adani Ports &amp; SEZ (APSEZ)</h3>
+            <p class="dir-card__category">Port Operator / CFS / Logistics</p>
+            <p class="dir-card__desc">India's largest private port operator handling ~30% of India's container cargo. Operates Mundra (India's largest port), Hazira, Dahej, Dhamra, Kattupalli, Vizhinjam, and Gangavaram. Offers integrated logistics via Adani Logistics.</p>
             <div class="dir-card__meta">
-              <span>📍 Mundra / Ahmedabad</span>
-              <span>🌐 adanilogistics.com</span>
+              <span>📍 Ahmedabad (HQ) · Mundra · 13 ports</span>
+              <span>📅 Founded 1998 · Listed on BSE/NSE</span>
+              <span>🌐 <a href="https://www.adaniports.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">adaniports.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
         <div class="dir-card" data-category="cfs">
-          <div class="dir-card__logo">📦</div>
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/abornewardfreight.com" alt="Continental Warehousing logo" onerror="this.parentElement.innerHTML='<span style=font-size:1rem;font-weight:800;color:var(--primary)>CONTINENTAL</span>'">
+          </div>
           <div class="dir-card__body">
-            <h3 class="dir-card__title">Continental Warehousing</h3>
-            <p class="dir-card__category">CFS / Warehousing</p>
-            <p class="dir-card__desc">Leading CFS and bonded warehouse operator at JNPT. Temperature-controlled storage, bonded warehousing, and last-mile logistics services.</p>
+            <h3 class="dir-card__title">Continental Warehousing Corporation</h3>
+            <p class="dir-card__category">CFS / Bonded Warehouse</p>
+            <p class="dir-card__desc">Leading CFS and bonded warehouse operator at JNPT since 1984. Offers temperature-controlled storage, bonded warehousing, fumigation, stuffing/destuffing, and last-mile delivery for import/export cargo at Nhava Sheva.</p>
             <div class="dir-card__meta">
-              <span>📍 Nhava Sheva / Pune</span>
-              <span>🌐 continentalgroup.com</span>
+              <span>📍 Nhava Sheva, JNPT · Pune · Nagpur</span>
+              <span>📅 Founded 1984 · Listed on BSE/NSE</span>
+              <span>🌐 <a href="https://www.continentalgroup.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">continentalgroup.com</a></span>
             </div>
             <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
           </div>
         </div>
+        <div class="dir-card" data-category="shipping-line">
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/mabornewardfreight.com" alt="MSC logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.4rem;font-weight:800;color:#003087>MSC</span>'">
+          </div>
+          <div class="dir-card__body">
+            <h3 class="dir-card__title">MSC India (Mediterranean Shipping Co.)</h3>
+            <p class="dir-card__category">Shipping Line</p>
+            <p class="dir-card__desc">World's largest container shipping company by fleet capacity. Extensive India network with weekly services from JNPT, Mundra, Chennai, Kolkata, and Tuticorin. Full range of container types including reefers and open-top.</p>
+            <div class="dir-card__meta">
+              <span>📍 Mumbai (India HQ) · All major ports</span>
+              <span>📅 Global HQ: Geneva · In India since 1980s</span>
+              <span>🌐 <a href="https://www.msc.com/en/countries/india" target="_blank" rel="noopener" style="color:var(--accent-dark)">msc.com</a></span>
+            </div>
+            <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
+          </div>
+        </div>
+        <div class="dir-card" data-category="forwarder">
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/freightwalla.com" alt="Freightwalla logo" onerror="this.parentElement.innerHTML='<span style=font-size:1.1rem;font-weight:800;color:var(--accent-dark)>FREIGHTWALLA</span>'">
+          </div>
+          <div class="dir-card__body">
+            <h3 class="dir-card__title">Freightwalla (Shipwaves)</h3>
+            <p class="dir-card__category">Digital Freight Forwarder</p>
+            <p class="dir-card__desc">AI-powered digital freight forwarder from India. Instant rate comparison across 30+ carriers, online booking, documentation, and real-time container tracking. Focused on simplifying Indian EXIM logistics.</p>
+            <div class="dir-card__meta">
+              <span>📍 Mumbai (HQ) · Digital-first</span>
+              <span>📅 Founded 2016 · Y Combinator backed</span>
+              <span>🌐 <a href="https://www.freightwalla.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">freightwalla.com</a></span>
+            </div>
+            <a href="contact.html" class="btn btn--primary btn--sm">Get Quote →</a>
+          </div>
+        </div>
+        <div class="dir-card" data-category="cha">
+          <div class="dir-card__logo">
+            <img src="https://logo.clearbit.com/abornewardfreight.com" alt="FFFAI logo" onerror="this.parentElement.innerHTML='<span style=font-size:1rem;font-weight:800;color:var(--primary)>FFFAI</span>'">
+          </div>
+          <div class="dir-card__body">
+            <h3 class="dir-card__title">FFFAI (Federation of Freight Forwarders)</h3>
+            <p class="dir-card__category">Industry Association</p>
+            <p class="dir-card__desc">Apex body representing 28 member associations of customs brokers and freight forwarders across India. Recognized by CBIC and DGFT. Find verified CHAs and freight forwarders through their member directory.</p>
+            <div class="dir-card__meta">
+              <span>📍 Mumbai (HQ) · 28 regional associations</span>
+              <span>📅 Founded 1960 · FIATA member</span>
+              <span>🌐 <a href="https://www.abornewardfreight.com" target="_blank" rel="noopener" style="color:var(--accent-dark)">fffai.org</a></span>
+            </div>
+            <a href="contact.html" class="btn btn--primary btn--sm">Learn More →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="container">
+      <h2 class="cta-section__title fade-up">Want to List Your Company?</h2>
+      <p class="cta-section__desc fade-up">Join India's fastest growing maritime logistics directory and connect with exporters and importers nationwide.</p>
+      <div class="cta-section__actions fade-up">
+        <a href="contact.html" class="btn btn--primary btn--lg">List Your Company →</a>
       </div>
     </div>
   </section>
@@ -187,7 +273,7 @@
         <div>
           <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
           <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
-          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#00B8D9;">Vasera Global</a> initiative</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#0EA5E9;">Vasera Global</a> initiative</p>
           <div class="footer__social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="YouTube">▶</a></div>
         </div>
         <div>

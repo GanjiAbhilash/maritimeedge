@@ -20,11 +20,11 @@
   <nav class="navbar">
     <div class="container">
       <a href="index.html" class="navbar__logo">
-        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0052CC" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0052CC" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0052CC" stroke-width="2" stroke-linecap="round"/></svg>
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0EA5E9" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/></svg>
         Maritime<span>Edge</span>
       </a>
       <div class="navbar__menu">
-        <a href="index.html" class="navbar__link">Home</a>
+        <a href="index.html" class="navbar__link navbar__link--active">Home</a>
         <a href="news.html" class="navbar__link">News</a>
         <a href="jobs.html" class="navbar__link">Jobs</a>
         <a href="tools.html" class="navbar__link">Tools</a>
@@ -39,33 +39,58 @@
 
   <!-- Hero -->
   <section class="hero">
+    <div class="hero__bg">
+      <img src="https://images.unsplash.com/photo-1494412574643-ff11b0a5eb19?w=1920&q=80" alt="Container ship at port" loading="eager">
+    </div>
+    <div class="hero__shapes">
+      <div class="hero__shape"></div>
+      <div class="hero__shape"></div>
+      <div class="hero__shape"></div>
+    </div>
     <div class="container">
-      <div class="hero__content">
-        <span class="badge badge--blue hero__badge">Trusted by Indian exporters &amp; freight forwarders</span>
-        <h1 class="hero__title">India's Sea Freight &amp; <span>Port Logistics Platform</span></h1>
-        <p class="hero__desc">Ocean freight rates, Indian port updates, customs intelligence, and verified logistics providers — everything Indian exporters and importers need in one place.</p>
-        <div class="hero__actions">
-          <a href="contact.html" class="btn btn--primary">Get Sea Freight Quotes →</a>
-          <a href="directory.html" class="btn btn--outline">Explore Indian Freight Forwarders</a>
+      <div class="hero__grid">
+        <div class="hero__content">
+          <span class="badge badge--glass hero__badge">Trusted by Indian exporters &amp; freight forwarders</span>
+          <h1 class="hero__title">India's Sea Freight &amp; <span>Port Logistics Platform</span></h1>
+          <p class="hero__desc">Ocean freight rates, Indian port updates, customs intelligence, and verified logistics providers — everything Indian exporters and importers need in one place.</p>
+          <div class="hero__actions">
+            <a href="contact.html" class="btn btn--primary btn--lg">Get Sea Freight Quotes →</a>
+            <a href="directory.html" class="btn btn--white">Explore Freight Forwarders</a>
+          </div>
+        </div>
+        <div class="hero__stats">
+          <div class="hero__stat">
+            <div class="hero__stat-value">13</div>
+            <div class="hero__stat-label">Major Indian Ports</div>
+          </div>
+          <div class="hero__stat">
+            <div class="hero__stat-value">200+</div>
+            <div class="hero__stat-label">Destinations Worldwide</div>
+          </div>
+          <div class="hero__stat">
+            <div class="hero__stat-value">500+</div>
+            <div class="hero__stat-label">Verified Providers</div>
+          </div>
+          <div class="hero__stat">
+            <div class="hero__stat-value">24/7</div>
+            <div class="hero__stat-label">Platform Access</div>
+          </div>
         </div>
       </div>
-      <div class="hero__stats">
-        <div class="hero__stat">
-          <div class="hero__stat-value">13</div>
-          <div class="hero__stat-label">Major Indian Ports</div>
-        </div>
-        <div class="hero__stat">
-          <div class="hero__stat-value">200+</div>
-          <div class="hero__stat-label">Destinations Worldwide</div>
-        </div>
-        <div class="hero__stat">
-          <div class="hero__stat-value">500+</div>
-          <div class="hero__stat-label">Verified Providers</div>
-        </div>
-        <div class="hero__stat">
-          <div class="hero__stat-value">24/7</div>
-          <div class="hero__stat-label">Platform Access</div>
-        </div>
+    </div>
+  </section>
+
+  <!-- Trust Bar -->
+  <section class="trust-bar">
+    <div class="container">
+      <p class="trust-bar__title">Trusted by professionals across India's ports</p>
+      <div class="trust-bar__logos">
+        <span class="trust-bar__logo">JNPT Nhava Sheva</span>
+        <span class="trust-bar__logo">Mundra Port</span>
+        <span class="trust-bar__logo">Chennai Port</span>
+        <span class="trust-bar__logo">Kochi Port</span>
+        <span class="trust-bar__logo">Kolkata Port</span>
+        <span class="trust-bar__logo">Visakhapatnam</span>
       </div>
     </div>
   </section>
@@ -73,37 +98,50 @@
   <!-- Latest News -->
   <section class="section">
     <div class="container">
-      <div class="section__header">
-        <h2 class="section__title">Latest Port &amp; Shipping News</h2>
+      <div class="section__header fade-up">
+        <div class="section__eyebrow">Latest Updates</div>
+        <h2 class="section__title">Port &amp; Shipping News</h2>
         <p class="section__subtitle">Stay updated with Indian port operations, customs circulars, and ocean freight trends.</p>
       </div>
-      <div class="grid grid--3">
+      <div class="grid grid--3 stagger-children">
         <article class="news-card">
-          <div class="news-card__img">🚢</div>
+          <div class="news-card__img">
+            <img src="https://images.unsplash.com/photo-1578575437130-527eed3abbec?w=600&q=80" alt="Container port operations at JNPT" loading="lazy">
+            <div class="news-card__img-overlay"></div>
+            <span class="news-card__img-badge badge badge--glass">JNPT</span>
+          </div>
           <div class="news-card__body">
             <div class="news-card__meta">
-              <span class="badge badge--blue">JNPT</span>
+              <span class="badge badge--blue">Customs</span>
               <span>Apr 20, 2026</span>
             </div>
             <h3 class="news-card__title"><a href="articles/jnpt-mumbai-customs-returned-export-containers-april-2026.html">Major Relief for Returned Export Containers at JNPT</a></h3>
             <p class="news-card__summary">CBIC Circular No. 21/2026 — no Bill of Entry for returned containers with intact seals, BTT simplified, mandatory BWCs at CFS.</p>
-            <a href="articles/jnpt-mumbai-customs-returned-export-containers-april-2026.html" class="news-card__link">Read more →</a>
+            <a href="articles/jnpt-mumbai-customs-returned-export-containers-april-2026.html" class="news-card__link">Read full story →</a>
           </div>
         </article>
         <article class="news-card">
-          <div class="news-card__img">📦</div>
+          <div class="news-card__img">
+            <img src="https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=600&q=80" alt="Mundra port Gujarat" loading="lazy">
+            <div class="news-card__img-overlay"></div>
+            <span class="news-card__img-badge badge badge--glass">Mundra</span>
+          </div>
           <div class="news-card__body">
             <div class="news-card__meta">
-              <span class="badge badge--blue">Mundra</span>
+              <span class="badge badge--blue">Gujarat</span>
               <span>Apr 18, 2026</span>
             </div>
             <h3 class="news-card__title"><a href="articles/gujarat-customs-updates-april-2026.html">Gujarat Customs Updates — Mundra, Kandla, Hazira &amp; Pipavav</a></h3>
             <p class="news-card__summary">Trade facilitation, digitisation, and congestion management at India's largest EXIM hub.</p>
-            <a href="articles/gujarat-customs-updates-april-2026.html" class="news-card__link">Read more →</a>
+            <a href="articles/gujarat-customs-updates-april-2026.html" class="news-card__link">Read full story →</a>
           </div>
         </article>
         <article class="news-card">
-          <div class="news-card__img">📋</div>
+          <div class="news-card__img">
+            <img src="https://images.unsplash.com/photo-1605745341112-85968b19335b?w=600&q=80" alt="Chennai port and shipping" loading="lazy">
+            <div class="news-card__img-overlay"></div>
+            <span class="news-card__img-badge badge badge--glass">Chennai</span>
+          </div>
           <div class="news-card__body">
             <div class="news-card__meta">
               <span class="badge badge--blue">Chennai</span>
@@ -111,7 +149,7 @@
             </div>
             <h3 class="news-card__title"><a href="articles/chennai-customs-updates-april-2026.html">Chennai Customs — BWCs, Extended CFS Hours &amp; Digital Passes</a></h3>
             <p class="news-card__summary">Mandatory body-worn cameras at ICDs, extended CFS hours, returned cargo procedures, digital customs pass system.</p>
-            <a href="articles/chennai-customs-updates-april-2026.html" class="news-card__link">Read more →</a>
+            <a href="articles/chennai-customs-updates-april-2026.html" class="news-card__link">Read full story →</a>
           </div>
         </article>
       </div>
@@ -121,14 +159,77 @@
     </div>
   </section>
 
+  <!-- Port Map Section -->
+  <section class="port-map">
+    <div class="container">
+      <div class="port-map__grid">
+        <div class="port-map__image fade-up">
+          <img src="https://images.unsplash.com/photo-1524522173746-f628baad3644?w=800&q=80" alt="Aerial view of Indian port with containers" loading="lazy">
+        </div>
+        <div class="port-map__content fade-up">
+          <div class="section__eyebrow">Coverage</div>
+          <h2>All 13 Major Indian Ports Connected</h2>
+          <p>From JNPT on the west coast to Kolkata on the east, we provide real-time intelligence across every major Indian port gateway.</p>
+          <div class="port-list">
+            <div class="port-list__item"><span class="port-list__dot"></span>JNPT / Nhava Sheva</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Mundra</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Chennai</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Kochi / Cochin</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Kolkata / Haldia</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Visakhapatnam</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Kandla / Deendayal</div>
+            <div class="port-list__item"><span class="port-list__dot"></span>Tuticorin</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="section">
+    <div class="container">
+      <div class="section__header fade-up">
+        <div class="section__eyebrow">Why MaritimeEdge</div>
+        <h2 class="section__title">Built for Indian EXIM Professionals</h2>
+        <p class="section__subtitle">Free tools and intelligence designed specifically for India's sea freight ecosystem.</p>
+      </div>
+      <div class="grid grid--4 stagger-children">
+        <div class="feature-card">
+          <div class="feature-card__icon">📐</div>
+          <h3 class="feature-card__title">CBM Calculator</h3>
+          <p class="feature-card__desc">Calculate cubic meters for FCL/LCL shipments from Indian ports.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">🔍</div>
+          <h3 class="feature-card__title">ITC-HS Lookup</h3>
+          <p class="feature-card__desc">Find Indian Trade Classification HS codes for export/import cargo.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">💰</div>
+          <h3 class="feature-card__title">IGST &amp; Duty Calc</h3>
+          <p class="feature-card__desc">Estimate customs duty, IGST, and cess for imports at Indian ports.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-card__icon">🚢</div>
+          <h3 class="feature-card__title">Port Schedules</h3>
+          <p class="feature-card__desc">Check vessel schedules from JNPT, Mundra, Chennai &amp; more.</p>
+        </div>
+      </div>
+      <div class="view-more">
+        <a href="tools.html" class="btn btn--outline">Explore All Tools →</a>
+      </div>
+    </div>
+  </section>
+
   <!-- Jobs -->
   <section class="section section--alt">
     <div class="container">
-      <div class="section__header">
+      <div class="section__header fade-up">
+        <div class="section__eyebrow">Careers</div>
         <h2 class="section__title">Logistics Jobs in India</h2>
         <p class="section__subtitle">Find your next role at India's top shipping and port logistics companies.</p>
       </div>
-      <div class="grid grid--3">
+      <div class="grid grid--3 stagger-children">
         <div class="job-card">
           <div class="job-card__header">
             <div>
@@ -187,38 +288,14 @@
     </div>
   </section>
 
-  <!-- Tools -->
-  <section class="section">
+  <!-- CTA Section -->
+  <section class="cta-section">
     <div class="container">
-      <div class="section__header">
-        <h2 class="section__title">Indian EXIM &amp; Shipping Tools</h2>
-        <p class="section__subtitle">Free tools built for Indian exporters, importers, and customs brokers.</p>
-      </div>
-      <div class="grid grid--4">
-        <div class="tool-card">
-          <div class="tool-card__icon">📐</div>
-          <h3 class="tool-card__title">CBM Calculator</h3>
-          <p class="tool-card__desc">Calculate cubic meters for your FCL/LCL sea freight shipments from Indian ports.</p>
-          <a href="tools.html" class="btn btn--outline btn--sm">Use Tool →</a>
-        </div>
-        <div class="tool-card">
-          <div class="tool-card__icon">🔍</div>
-          <h3 class="tool-card__title">ITC-HS Code Lookup</h3>
-          <p class="tool-card__desc">Find Indian Trade Classification HS codes for your export/import cargo.</p>
-          <a href="tools.html" class="btn btn--outline btn--sm">Use Tool →</a>
-        </div>
-        <div class="tool-card">
-          <div class="tool-card__icon">💰</div>
-          <h3 class="tool-card__title">IGST &amp; Duty Calculator</h3>
-          <p class="tool-card__desc">Estimate customs duty, IGST, and cess for imports arriving at Indian ports.</p>
-          <a href="tools.html" class="btn btn--outline btn--sm">Use Tool →</a>
-        </div>
-        <div class="tool-card">
-          <div class="tool-card__icon">🚢</div>
-          <h3 class="tool-card__title">Indian Port Schedules</h3>
-          <p class="tool-card__desc">Check vessel schedules from JNPT, Mundra, Chennai, Kochi &amp; other Indian ports.</p>
-          <a href="tools.html" class="btn btn--outline btn--sm">Use Tool →</a>
-        </div>
+      <h2 class="cta-section__title fade-up">Ready to Ship from India?</h2>
+      <p class="cta-section__desc fade-up">Get competitive ocean freight rates from verified Indian logistics providers. One request, multiple quotes.</p>
+      <div class="cta-section__actions fade-up">
+        <a href="contact.html" class="btn btn--primary btn--lg">Request Free Quote →</a>
+        <a href="directory.html" class="btn btn--white">Browse Directory</a>
       </div>
     </div>
   </section>
@@ -244,7 +321,7 @@
         <div>
           <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
           <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
-          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#00B8D9;">Vasera Global</a> initiative</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#0EA5E9;">Vasera Global</a> initiative</p>
           <div class="footer__social">
             <a href="#" aria-label="Twitter">𝕏</a>
             <a href="#" aria-label="LinkedIn">in</a>
