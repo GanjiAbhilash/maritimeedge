@@ -42,51 +42,151 @@
     <div class="container">
       <div class="filter-bar">
         <button class="filter-bar__btn filter-bar__btn--active" data-filter="all">All</button>
-        <button class="filter-bar__btn" data-filter="full-time">Full-time</button>
-        <button class="filter-bar__btn" data-filter="remote">Remote</button>
-        <button class="filter-bar__btn" data-filter="contract">Contract</button>
+        <button class="filter-bar__btn" data-filter="port-terminal">Port &amp; Terminal</button>
+        <button class="filter-bar__btn" data-filter="cfs">CFS</button>
+        <button class="filter-bar__btn" data-filter="icd">ICD</button>
+        <button class="filter-bar__btn" data-filter="dry-port">Dry Port</button>
       </div>
       <div class="grid grid--2 stagger-children">
-        <div class="job-card" data-category="full-time">
-          <div class="job-card__header"><div><h3 class="job-card__title">Ocean Freight Manager</h3><p class="job-card__company">Allcargo Logistics — Mumbai</p></div><span class="badge badge--blue">Full-time</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Mumbai</span><span class="job-card__detail">🕐 Posted 2d ago</span><span class="job-card__detail">👥 Freight Operations</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹12L – ₹18L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 1. Port/Terminal — GM Marine Logistics, Kochi -->
+        <div class="job-card" data-category="port-terminal">
+          <div class="job-card__top">
+            <div class="job-card__logo"><img src="https://logo.clearbit.com/veloramarine.com" alt="Velora Marine logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span class=job-card__logo-text>VM</span>'"></div>
+            <span class="job-card__type-badge job-card__type-badge--port-terminal">⚓ Port / Terminal</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">General Manager – Marine Logistics</h3>
+            <p class="job-card__company">Velora Marine &amp; Consulting — Kochi, India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Kochi</span>
+            <span class="job-card__tag">📅 10+ yrs</span>
+            <span class="job-card__tag">👥 Operations</span>
+            <span class="job-card__tag">🏢 GM Level</span>
+          </div>
+          <p class="job-card__desc">Oversee end-to-end marine logistics services including vessel coordination, port operations, and compliance management.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Senior Leadership Band</span><span class="job-card__source">via Indeed India</span></div>
+            <a href="https://in.indeed.com/q-supply-chain-logistics-in-marine-jobs.html" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="full-time">
-          <div class="job-card__header"><div><h3 class="job-card__title">Customs House Agent (CHA)</h3><p class="job-card__company">J M Baxi &amp; Co — JNPT</p></div><span class="badge badge--blue">Full-time</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Nhava Sheva</span><span class="job-card__detail">🕐 Posted 3d ago</span><span class="job-card__detail">👥 Customs Clearance</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹6L – ₹10L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 2. Port/Terminal — Ports & Intermodal Ops Manager, Hyderabad -->
+        <div class="job-card" data-category="port-terminal">
+          <div class="job-card__top">
+            <div class="job-card__logo"><span class="job-card__logo-text">Conf.</span></div>
+            <span class="job-card__type-badge job-card__type-badge--port-terminal">⚓ Port / Terminal</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">Ports &amp; Intermodal Operations Manager</h3>
+            <p class="job-card__company">Confidential — Hyderabad, India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Hyderabad</span>
+            <span class="job-card__tag">📅 8–15 yrs</span>
+            <span class="job-card__tag">👥 Operations</span>
+            <span class="job-card__tag">🏢 Senior Mgmt</span>
+          </div>
+          <p class="job-card__desc">Manage intermodal and port operations across rail and terminal logistics with focus on throughput and efficiency.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Senior Manager Band</span><span class="job-card__source">via Naukri</span></div>
+            <a href="https://www.naukri.com/port-operations-jobs" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="remote">
-          <div class="job-card__header"><div><h3 class="job-card__title">Export Documentation Executive</h3><p class="job-card__company">Sagar Defence — Chennai Port</p></div><span class="badge badge--green">Remote</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Chennai</span><span class="job-card__detail">🕐 Posted 5d ago</span><span class="job-card__detail">👥 Documentation</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹4L – ₹7L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 3. CFS — CFS Operations Head, Nhava Sheva -->
+        <div class="job-card" data-category="cfs">
+          <div class="job-card__top">
+            <div class="job-card__logo"><img src="https://logo.clearbit.com/concorindia.com" alt="CONCOR logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span class=job-card__logo-text>CONCOR</span>'"></div>
+            <span class="job-card__type-badge job-card__type-badge--cfs">📦 CFS</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">CFS Operations Head</h3>
+            <p class="job-card__company">CONCOR / Private CFS Operator — Nhava Sheva, India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Nhava Sheva</span>
+            <span class="job-card__tag">📅 10–15 yrs</span>
+            <span class="job-card__tag">👥 Operations</span>
+            <span class="job-card__tag">🏢 Senior Mgmt</span>
+          </div>
+          <p class="job-card__desc">Lead end-to-end CFS operations including EXIM cargo handling, customs coordination, and inventory management.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Senior Leadership Band</span><span class="job-card__source">via CONCOR Careers</span></div>
+            <a href="https://www.concorindia.com/careers.aspx" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="full-time">
-          <div class="job-card__header"><div><h3 class="job-card__title">Port Operations Supervisor</h3><p class="job-card__company">Adani Ports &amp; SEZ — Mundra</p></div><span class="badge badge--blue">Full-time</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Mundra, Gujarat</span><span class="job-card__detail">🕐 Posted 1d ago</span><span class="job-card__detail">👥 Port Operations</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹8L – ₹14L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 4. ICD — ICD Terminal Manager, Dadri -->
+        <div class="job-card" data-category="icd">
+          <div class="job-card__top">
+            <div class="job-card__logo"><img src="https://logo.clearbit.com/concorindia.com" alt="CONCOR logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span class=job-card__logo-text>CONCOR</span>'"></div>
+            <span class="job-card__type-badge job-card__type-badge--icd">🚂 ICD</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">ICD Terminal Manager</h3>
+            <p class="job-card__company">Container Corporation of India (CONCOR) — Dadri, India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Dadri</span>
+            <span class="job-card__tag">📅 12+ yrs</span>
+            <span class="job-card__tag">👥 Terminal Ops</span>
+            <span class="job-card__tag">🏢 Senior Mgmt</span>
+          </div>
+          <p class="job-card__desc">Manage inland container depot terminal operations including rail coordination, customs yard management, and throughput optimization.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Govt / PSU Executive Band</span><span class="job-card__source">via CONCOR Careers</span></div>
+            <a href="https://www.concorindia.com/careers.aspx" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="contract">
-          <div class="job-card__header"><div><h3 class="job-card__title">EXIM Compliance Analyst</h3><p class="job-card__company">Maersk India — New Delhi</p></div><span class="badge badge--orange">Contract</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 New Delhi</span><span class="job-card__detail">🕐 Posted 4d ago</span><span class="job-card__detail">👥 Compliance</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹7L – ₹11L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 5. CFS — Senior Manager CFS & Warehouse, Chennai -->
+        <div class="job-card" data-category="cfs">
+          <div class="job-card__top">
+            <div class="job-card__logo"><img src="https://logo.clearbit.com/allcargologistics.com" alt="Allcargo logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span class=job-card__logo-text>Allcargo</span>'"></div>
+            <span class="job-card__type-badge job-card__type-badge--cfs">📦 CFS</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">Senior Manager – CFS &amp; Warehouse</h3>
+            <p class="job-card__company">TVS Supply Chain / Allcargo — Chennai, India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Chennai</span>
+            <span class="job-card__tag">📅 8–12 yrs</span>
+            <span class="job-card__tag">👥 Operations</span>
+            <span class="job-card__tag">🏢 Senior Mgmt</span>
+          </div>
+          <p class="job-card__desc">Run bonded CFS and warehouse operations including customs processing, warehousing, and logistics coordination.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Senior Manager Band</span><span class="job-card__source">via Allcargo Careers</span></div>
+            <a href="https://www.allcargologistics.com/careers" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="remote">
-          <div class="job-card__header"><div><h3 class="job-card__title">Freight Rate Analyst</h3><p class="job-card__company">Cogoport — Remote (India)</p></div><span class="badge badge--green">Remote</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Remote (India)</span><span class="job-card__detail">🕐 Posted 6d ago</span><span class="job-card__detail">👥 Analytics</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹5L – ₹9L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
+
+        <!-- 6. ICD — Head ICD Business, Pan India -->
+        <div class="job-card" data-category="icd">
+          <div class="job-card__top">
+            <div class="job-card__logo"><img src="https://logo.clearbit.com/adanienterprises.com" alt="Adani Logistics logo" onerror="this.style.display='none';this.parentNode.innerHTML='<span class=job-card__logo-text>Adani</span>'"></div>
+            <span class="job-card__type-badge job-card__type-badge--icd">🚂 ICD</span>
+          </div>
+          <div class="job-card__header">
+            <h3 class="job-card__title">Head – ICD Business</h3>
+            <p class="job-card__company">Adani Logistics — Pan India</p>
+          </div>
+          <div class="job-card__tags">
+            <span class="job-card__tag">📍 Pan India</span>
+            <span class="job-card__tag">📅 15+ yrs</span>
+            <span class="job-card__tag">👥 Business &amp; Ops</span>
+            <span class="job-card__tag">🏢 Vice President</span>
+          </div>
+          <p class="job-card__desc">Scale inland container depot business nationwide with P&amp;L ownership, ICD network expansion, and rail logistics strategy.</p>
+          <div class="job-card__footer">
+            <div><span class="job-card__salary">Executive Leadership Band</span><span class="job-card__source">via Adani Careers</span></div>
+            <a href="https://www.adanienterprises.com/careers" target="_blank" rel="noopener" class="btn btn--primary btn--sm">Apply →</a>
+          </div>
         </div>
-        <div class="job-card" data-category="full-time">
-          <div class="job-card__header"><div><h3 class="job-card__title">Container Yard Manager</h3><p class="job-card__company">Gateway Distriparks — JNPT</p></div><span class="badge badge--blue">Full-time</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Nhava Sheva</span><span class="job-card__detail">🕐 Posted 1w ago</span><span class="job-card__detail">👥 Yard Operations</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹10L – ₹15L</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
-        </div>
-        <div class="job-card" data-category="full-time">
-          <div class="job-card__header"><div><h3 class="job-card__title">Shipping Line Sales Executive</h3><p class="job-card__company">CMA CGM India — Kochi</p></div><span class="badge badge--blue">Full-time</span></div>
-          <div class="job-card__details"><span class="job-card__detail">📍 Kochi</span><span class="job-card__detail">🕐 Posted 3d ago</span><span class="job-card__detail">👥 Sales</span></div>
-          <div class="job-card__footer"><span class="job-card__salary">₹5L – ₹8L + incentives</span><a href="#" class="btn btn--primary btn--sm">Apply →</a></div>
-        </div>
+
       </div>
     </div>
   </section>

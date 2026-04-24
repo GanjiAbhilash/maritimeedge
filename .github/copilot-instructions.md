@@ -118,6 +118,15 @@ CNAME                  — Custom domain config (do not modify or delete)
 - Founding years, HQ locations, and services must be accurate
 - `data-category` must match filter bar options (forwarder, shipping-line, cha, cfs)
 
+## Jobs Rules
+- Only list jobs located in India. Exclude all international/non-India job listings.
+- Every job must be from a real, verifiable company with an accurate application URL.
+- Job titles, company names, locations, and salary bands must match the source listing.
+- "Confidential" employer listings are acceptable when the source uses them.
+- `data-category` must match filter bar options on jobs.html (port-terminal, cfs, icd, dry-port).
+- Each job card must include: job title, company name, location, experience required, function/department, salary/compensation band, and a working external application link.
+- Application links must use `target="_blank" rel="noopener"`.
+
 ## Pre-Deployment Checklist
 1. Open every HTML page in browser and verify rendering
 2. Test mobile nav toggle on each page
