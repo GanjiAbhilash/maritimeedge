@@ -81,6 +81,11 @@ articles/*.html        — News articles (use ../ for asset paths)
 google-apps-script/
   Code.gs              — Backend (do not expose URL in comments)
 CNAME                  — Custom domain config (do not modify or delete)
+.github/
+  copilot-instructions.md  — Always-on project rules (this file)
+  instructions/            — File-scoped rules (auto-loaded by applyTo pattern)
+  skills/                  — On-demand workflow playbooks (loaded when task matches)
+  prompts/                 — Reusable single-task prompts (invoked via /)
 ```
 
 ## Design System
@@ -128,13 +133,12 @@ CNAME                  — Custom domain config (do not modify or delete)
 - Application links must use `target="_blank" rel="noopener"`.
 
 ## Pre-Deployment Checklist
-1. Open every HTML page in browser and verify rendering
-2. Test mobile nav toggle on each page
-3. Test newsletter form submission
-4. Test RFQ form (contact.html)
-5. Verify all news card links go to correct articles
-6. Verify filter buttons work on news.html, jobs.html, directory.html
-7. Test scroll animations on index.html
-8. Check no console errors on any page
-9. Verify all images load (no 404s)
-10. Verify no `#0052CC` colors remain (should all be `#0EA5E9`)
+Use the `pre-deploy-check` skill for the full checklist. Key checks:
+1. Navbar links and active states correct across all pages
+2. Footer content identical across all pages (including articles)
+3. Newsletter form with `id="newsletter-form"` on every page
+4. All news card links go to correct articles
+5. Filter buttons work on news.html, jobs.html, directory.html
+6. No console errors, no 404 images
+7. No `#0052CC` colors remain (should all be `#0EA5E9`)
+8. All `href="#"` links have `<!-- TODO: Link to real page -->` comments
