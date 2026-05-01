@@ -231,6 +231,10 @@
           btn.textContent = 'Login';
           btn.disabled = false;
         }
+      }).withFailureHandler(function(err) {
+        btn.textContent = 'Login';
+        btn.disabled = false;
+        alert('Login failed: ' + err.message);
       }).adminLogin(pw);
     }
 
@@ -359,6 +363,11 @@
         } else {
           alert('Error: ' + (result.error || 'Unknown'));
         }
+      }).withFailureHandler(function(err) {
+        btn.textContent = 'Approve & Send';
+        btn.disabled = false;
+        closeModal();
+        alert('Server error: ' + err.message);
       }).approveRFQ(rfqId, selected, 'Admin');
     }
 
@@ -378,6 +387,8 @@
       google.script.run.withSuccessHandler(function(result) {
         if (result.success) { alert('RFQ rejected.'); loadRFQs(); loadStats(); }
         else alert('Error: ' + (result.error || 'Unknown'));
+      }).withFailureHandler(function(err) {
+        alert('Server error: ' + err.message);
       }).rejectRFQ(rfqId, reason || '');
     }
 
@@ -445,6 +456,8 @@
         } else {
           alert('Error: ' + (result.error || 'Unknown'));
         }
+      }).withFailureHandler(function(err) {
+        alert('Server error: ' + err.message);
       }).sendPaymentRequest(quoteId, rfqId);
     }
 
@@ -459,17 +472,31 @@
         var html = payments.map(function(p) {
           var actions = '';
           if (p.status === 'Pending') {
-            actions = '<button class="btn btn-sm btn-green" onclick="confirmPayment(\'' + p.paymentId + '\')">Manual Confirm</button>' +
-              '<a href="' + p.razorpayLinkUrl + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline">View Link</a>';
+            actions = '<button class="btn btn-sm btn-green" onclick="confirmPayment(\'' + p.paymentId + '\')">Manual Confirm</button>';
+            if (p.razorpayLinkUrl) {
+              actions += '<a href="' + p.razorpayLinkUrl + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline">View Payment Link</a>';
+            }
           }
+          var paidInfo = '';
+          if (p.status === 'Paid' && p.paidAt) {
+            var paidDate = new Date(p.paidAt);
+            paidInfo = '<div class="card-row"><span>Paid At:</span><strong>' + paidDate.toLocaleString('en-IN') + '</strong></div>';
+            if (p.razorpayPaymentId) {
+              paidInfo += '<div class="card-row"><span>Razorpay ID:</span><strong style="font-size:0.8rem;">' + p.razorpayPaymentId + '</strong></div>';
+            }
+          }
+          var createdDate = p.createdAt ? new Date(p.createdAt).toLocaleString('en-IN') : 'N/A';
           return '<div class="card">' +
             '<div class="card-header"><span class="card-id">' + p.paymentId + '</span>' +
             '<span class="status status-' + p.status.toLowerCase() + '">' + p.status + '</span></div>' +
             '<div class="card-body">' +
             '<div class="card-row"><span>RFQ:</span><strong>' + p.rfqId + '</strong></div>' +
+            '<div class="card-row"><span>Quote:</span><strong>' + p.quoteId + '</strong></div>' +
             '<div class="card-row"><span>Partner:</span><strong>' + p.partnerName + '</strong></div>' +
-            '<div class="card-row"><span>Commission:</span><strong class="price">\u20B9' + Number(p.commissionAmount).toLocaleString('en-IN') + '</strong></div>' +
             '<div class="card-row"><span>Shipment Value:</span><strong>\u20B9' + Number(p.shipmentValue).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Commission (' + p.commissionPercent + '%):</span><strong class="price">\u20B9' + Number(p.commissionAmount).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Created:</span><strong>' + createdDate + '</strong></div>' +
+            paidInfo +
             '</div><div class="card-actions">' + actions + '</div></div>';
         }).join('');
         document.getElementById('payments-list').innerHTML = html;
@@ -483,6 +510,8 @@
       google.script.run.withSuccessHandler(function(result) {
         if (result.success) { alert('Payment confirmed! Details released.'); loadPayments(); loadStats(); }
         else alert('Error: ' + (result.error || 'Unknown'));
+      }).withFailureHandler(function(err) {
+        alert('Server error: ' + err.message);
       }).confirmPaymentManual(paymentId);
     }
 

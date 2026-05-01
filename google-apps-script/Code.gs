@@ -58,6 +58,11 @@ function doPost(e) {
   try {
     var data = JSON.parse(e.postData.contents);
 
+    // Razorpay webhook events have an 'event' field
+    if (data.event && data.event === 'payment_link.paid') {
+      return handleRazorpayWebhook(e);
+    }
+
     switch (data.type) {
       case 'subscriber':
         return handleSubscriber(data);
@@ -135,6 +140,11 @@ function validateToken(partnerId, rfqId, token) {
 
 function formatINR(amount) {
   return '\u20B9' + Number(amount).toLocaleString('en-IN');
+}
+
+function getAdminUrl() {
+  try { return ScriptApp.getService().getUrl(); }
+  catch (e) { return ''; }
 }
 
 // Convert Date objects in a sheet row to ISO strings for safe google.script.run serialization
@@ -256,7 +266,7 @@ function handleRFQ(data) {
     '*Value:* ' + formatINR(data.shipmentValue || 0) + '\n' +
     '*Company:* ' + (data.company || 'N/A') + '\n' +
     '*Contact:* ' + (data.fullName || 'N/A') + '\n\n' +
-    '\uD83D\uDC49 Open Admin Panel to approve/reject.'
+    '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to approve/reject.'
   );
 
   // Email fallback to admins (ensures notification even if Telegram fails)
@@ -371,7 +381,7 @@ function handleQuote(data) {
     '*Price:* ' + formatINR(data.quotedPrice) + '\n' +
     '*Transit:* ' + data.transitTime + ' days\n' +
     '*Valid:* ' + data.validity + ' days\n\n' +
-    '\uD83D\uDC49 Open Admin Panel to review quotes.'
+    '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to review quotes.'
   );
 
   return jsonResponse({ status: 'success', message: 'Quote submitted', quoteId: quoteId });
@@ -552,7 +562,8 @@ function approveRFQ(rfqId, partnerIds, approvedBy) {
   });
 
   sendTelegramToAdmin(
-    '\u2705 *RFQ Approved*\n\n*ID:* ' + rfqId + '\n*Sent to:* ' + sentCount + ' partners\n*Partners:* ' + partnerIds.join(', ')
+    '\u2705 *RFQ Approved*\n\n*ID:* ' + rfqId + '\n*Sent to:* ' + sentCount + ' partners\n*Partners:* ' + partnerIds.join(', ') +
+    '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
   return { success: true, sentCount: sentCount, whatsappLinks: whatsappLinks };
@@ -616,7 +627,7 @@ function sendAnonymizedRFQToPartner(partnerId, rfqData) {
   // WhatsApp link (admin sends manually)
   var whatsappLink = '';
   if (partnerWhatsapp || partnerPhone) {
-    var waPhone = (partnerWhatsapp || partnerPhone).replace(/[^0-9]/g, '');
+    var waPhone = String(partnerWhatsapp || partnerPhone || '').replace(/[^0-9]/g, '');
     if (waPhone.length === 10) waPhone = '91' + waPhone;
     var waMsg = 'Hi ' + partnerName + ', new shipment opportunity on MaritimeEdge:\n\nRFQ: ' + rfqData.rfqId +
       '\nRoute: ' + originRegion + ' \u2192 ' + rfqData.destination + '\nCargo: ' + genericCargo +
@@ -737,8 +748,9 @@ function sendPaymentRequest(quoteId, rfqId) {
   if (!quoteRow) return { error: 'Quote not found' };
   var partnerId = quoteRow[2];
   var partnerName = quoteRow[3];
+  var quotedPrice = parseFloat(quoteRow[4]) || 0;
 
-  var commissionAmount = Math.round(shipmentValue * (config.COMMISSION_PERCENT / 100));
+  var commissionAmount = Math.round(quotedPrice * (config.COMMISSION_PERCENT / 100));
   if (commissionAmount < 100) commissionAmount = 100;
 
   var partnerSheet = getSheet(TABS.PARTNERS);
@@ -751,11 +763,14 @@ function sendPaymentRequest(quoteId, rfqId) {
     description: 'MaritimeEdge Commission \u2014 ' + rfqId,
     customerName: partnerRow[2] || partnerName,
     customerEmail: partnerRow[3],
-    customerPhone: (partnerRow[4] || '').replace(/[^0-9]/g, ''),
+    customerPhone: String(partnerRow[4] || '').replace(/[^0-9]/g, ''),
     rfqId: rfqId, quoteId: quoteId, partnerId: partnerId
   });
 
-  if (paymentLink.error) return paymentLink;
+  // If Razorpay not configured, create a manual payment entry (admin collects payment offline)
+  var isManual = !!paymentLink.error;
+  var linkId = isManual ? 'MANUAL' : paymentLink.linkId;
+  var linkUrl = isManual ? '' : paymentLink.shortUrl;
 
   var paymentsHeaders = [
     'Payment ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Partner Name',
@@ -769,7 +784,7 @@ function sendPaymentRequest(quoteId, rfqId) {
   paymentsSheet.appendRow([
     paymentId, rfqId, quoteId, partnerId, partnerName,
     shipmentValue, config.COMMISSION_PERCENT, commissionAmount,
-    'Pending', paymentLink.linkId, paymentLink.shortUrl, '',
+    'Pending', linkId, linkUrl, '',
     new Date().toISOString(), ''
   ]);
 
@@ -778,33 +793,46 @@ function sendPaymentRequest(quoteId, rfqId) {
 
   // Email to partner
   if (partnerRow[3]) {
+    var emailPayUrl = isManual ? '' : paymentLink.shortUrl;
     MailApp.sendEmail({
       to: partnerRow[3],
       subject: 'Action Required \u2014 Commission Payment for ' + rfqId + ' | MaritimeEdge',
-      htmlBody: buildPaymentEmail(rfqId, partnerName, commissionAmount, paymentLink.shortUrl),
+      htmlBody: isManual
+        ? buildManualPaymentEmail(rfqId, partnerName, commissionAmount)
+        : buildPaymentEmail(rfqId, partnerName, commissionAmount, paymentLink.shortUrl),
       name: 'MaritimeEdge Marketplace'
     });
   }
 
   // Telegram to partner
-  sendTelegramToPartner(partnerId,
-    '\uD83D\uDCB3 *Payment Required*\n\nYour quote for *' + rfqId + '* was shortlisted! \uD83C\uDF89\n\n' +
-    '*Commission:* ' + formatINR(commissionAmount) + ' (' + config.COMMISSION_PERCENT + '% of shipment value)\n\n' +
-    'Pay to unlock details:\n' + paymentLink.shortUrl
-  );
+  var telegramPayMsg = '\uD83D\uDCB3 *Payment Required*\n\nYour quote for *' + rfqId + '* was shortlisted! \uD83C\uDF89\n\n' +
+    '*Commission:* ' + formatINR(commissionAmount) + ' (' + config.COMMISSION_PERCENT + '% of shipment value)\n\n';
+  if (isManual) {
+    telegramPayMsg += 'Our team will contact you with payment details.';
+  } else {
+    telegramPayMsg += 'Pay to unlock details:\n' + paymentLink.shortUrl;
+  }
+  sendTelegramToPartner(partnerId, telegramPayMsg);
 
   // WhatsApp link for admin
-  var waPhone = (partnerRow[5] || partnerRow[4] || '').replace(/[^0-9]/g, '');
+  var waPhone = String(partnerRow[5] || partnerRow[4] || '').replace(/[^0-9]/g, '');
   if (waPhone.length === 10) waPhone = '91' + waPhone;
-  var whatsappLink = waPhone ? 'https://wa.me/' + waPhone + '?text=' +
-    encodeURIComponent('Hi ' + partnerName + ', your quote for ' + rfqId + ' was shortlisted! Complete payment to unlock manufacturer details: ' + paymentLink.shortUrl) : '';
+  var waText = isManual
+    ? 'Hi ' + partnerName + ', your quote for ' + rfqId + ' was shortlisted! Commission: ' + formatINR(commissionAmount) + '. We will share payment details shortly.'
+    : 'Hi ' + partnerName + ', your quote for ' + rfqId + ' was shortlisted! Complete payment to unlock manufacturer details: ' + paymentLink.shortUrl;
+  var whatsappLink = waPhone ? 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText) : '';
 
   sendTelegramToAdmin(
-    '\uD83D\uDCB3 *Payment Link Sent*\n\n*RFQ:* ' + rfqId + '\n*Partner:* ' + partnerName +
-    '\n*Commission:* ' + formatINR(commissionAmount) + '\n*Link:* ' + paymentLink.shortUrl
+    '\uD83D\uDCB3 *Payment ' + (isManual ? 'Entry Created (Manual)' : 'Link Sent') + '*\n\n*RFQ:* ' + rfqId + '\n*Partner:* ' + partnerName +
+    '\n*Commission:* ' + formatINR(commissionAmount) + (isManual ? '\n\n\u26A0\uFE0F Razorpay not configured. Use Manual Confirm after collecting payment.' : '\n*Link:* ' + paymentLink.shortUrl) +
+    '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
-  return { success: true, paymentId: paymentId, amount: commissionAmount, link: paymentLink.shortUrl, whatsappLink: whatsappLink };
+  return {
+    success: true, paymentId: paymentId, amount: commissionAmount,
+    link: isManual ? 'Manual — collect payment offline' : paymentLink.shortUrl,
+    whatsappLink: whatsappLink, manual: isManual
+  };
 }
 
 function buildPaymentEmail(rfqId, partnerName, amount, paymentUrl) {
@@ -820,6 +848,21 @@ function buildPaymentEmail(rfqId, partnerName, amount, paymentUrl) {
     '<div style="text-align:center;margin:24px 0;">' +
     '<a href="' + paymentUrl + '" style="background:#0EA5E9;color:#fff;padding:16px 40px;text-decoration:none;border-radius:8px;display:inline-block;font-weight:700;font-size:1.1rem;">Pay Now & Unlock Details \u2192</a></div>' +
     '<p style="color:#555;font-size:0.85rem;line-height:1.6;">After payment, you will automatically receive the manufacturer\'s full contact details.</p></div>' +
+    '<div style="padding:16px;background:#0F172A;color:#aaa;text-align:center;font-size:12px;">' +
+    'MaritimeEdge Marketplace \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</div></div>';
+}
+
+function buildManualPaymentEmail(rfqId, partnerName, amount) {
+  return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">' +
+    '<div style="background:#0A2463;color:#fff;padding:20px;text-align:center;">' +
+    '<h1 style="margin:0;font-size:20px;">\u2693 MaritimeEdge \u2014 Your Quote Was Shortlisted!</h1></div>' +
+    '<div style="padding:24px;">' +
+    '<p style="color:#333;">Hi <strong>' + partnerName + '</strong>,</p>' +
+    '<p style="color:#333;line-height:1.6;">Your quote for <strong>' + rfqId + '</strong> has been selected!</p>' +
+    '<div style="text-align:center;margin:24px 0;padding:20px;background:#EEF2FF;border-radius:8px;">' +
+    '<p style="margin:0 0 8px;color:#666;font-size:0.85rem;">Commission Amount</p>' +
+    '<p style="margin:0;font-size:2rem;font-weight:800;color:#0A2463;">' + formatINR(amount) + '</p></div>' +
+    '<p style="color:#333;line-height:1.6;">Our team will contact you shortly with payment details. Once payment is confirmed, you will receive the manufacturer\'s full contact details.</p></div>' +
     '<div style="padding:16px;background:#0F172A;color:#aaa;text-align:center;font-size:12px;">' +
     'MaritimeEdge Marketplace \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</div></div>';
 }
@@ -862,10 +905,81 @@ function createRazorpayPaymentLink(params) {
 
 function confirmPaymentManual(paymentId) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
-  return processPaymentConfirmation(paymentId);
+  return processPaymentConfirmation(paymentId, 'Manual (Admin)');
 }
 
-function processPaymentConfirmation(paymentId) {
+// ─── RAZORPAY WEBHOOK HANDLER ───────────────────────────────
+function handleRazorpayWebhook(e) {
+  var config = getConfig();
+
+  // Verify webhook signature
+  if (config.RAZORPAY_WEBHOOK_SECRET) {
+    var signature = e.parameter && e.parameter['x-razorpay-signature'];
+    // Also check headers (GAS passes some headers via parameter)
+    if (!signature) {
+      // Try to get from headers if available
+      try {
+        var headers = e.headers || {};
+        signature = headers['x-razorpay-signature'] || headers['X-Razorpay-Signature'] || '';
+      } catch (err) { signature = ''; }
+    }
+    if (signature) {
+      var expectedSig = Utilities.computeHmacSha256Signature(e.postData.contents, config.RAZORPAY_WEBHOOK_SECRET);
+      var expectedHex = expectedSig.map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+      if (expectedHex !== signature) {
+        Logger.log('Razorpay webhook: invalid signature');
+        return jsonResponse({ status: 'error', message: 'Invalid signature' });
+      }
+    }
+  }
+
+  var data = JSON.parse(e.postData.contents);
+  var payload = data.payload || {};
+  var paymentLinkEntity = (payload.payment_link && payload.payment_link.entity) || {};
+  var paymentEntity = (payload.payment && payload.payment.entity) || {};
+
+  var razorpayLinkId = paymentLinkEntity.id || '';
+  var razorpayPaymentId = paymentEntity.id || '';
+  var notes = paymentLinkEntity.notes || {};
+
+  Logger.log('Razorpay webhook received: event=' + data.event + ', link_id=' + razorpayLinkId + ', payment_id=' + razorpayPaymentId);
+
+  if (!razorpayLinkId) {
+    return jsonResponse({ status: 'error', message: 'No payment link ID in webhook' });
+  }
+
+  // Find payment by Razorpay Link ID (column 10)
+  var paymentsSheet = getSheet(TABS.PAYMENTS);
+  if (!paymentsSheet || paymentsSheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'error', message: 'No payments found' });
+  }
+
+  var rowNum = findRowNumberByColumn(paymentsSheet, 10, razorpayLinkId);
+  if (rowNum < 0) {
+    return jsonResponse({ status: 'error', message: 'Payment link not found: ' + razorpayLinkId });
+  }
+
+  var paymentRow = paymentsSheet.getRange(rowNum, 1, 1, paymentsSheet.getLastColumn()).getValues()[0];
+  var paymentId = paymentRow[0];
+  var currentStatus = paymentRow[8];
+
+  // Skip if already paid
+  if (currentStatus === 'Paid') {
+    Logger.log('Payment ' + paymentId + ' already confirmed. Skipping.');
+    return jsonResponse({ status: 'ok', message: 'Already processed' });
+  }
+
+  // Store Razorpay Payment ID
+  paymentsSheet.getRange(rowNum, 12).setValue(razorpayPaymentId);
+
+  // Process the payment confirmation (same flow as manual confirm)
+  var result = processPaymentConfirmation(paymentId, 'Razorpay (Auto)');
+
+  Logger.log('Razorpay webhook processed: ' + paymentId + ' → ' + JSON.stringify(result));
+  return jsonResponse({ status: 'ok', message: 'Payment confirmed' });
+}
+
+function processPaymentConfirmation(paymentId, confirmedBy) {
   var paymentsSheet = getSheet(TABS.PAYMENTS);
   if (!paymentsSheet) return { error: 'Payments sheet not found' };
 
@@ -890,7 +1004,9 @@ function processPaymentConfirmation(paymentId) {
   sendTelegramToAdmin(
     '\uD83C\uDF89 *Payment Confirmed!*\n\n*Payment:* ' + paymentId + '\n*RFQ:* ' + rfqId +
     '\n*Partner:* ' + partnerName + '\n*Commission:* ' + formatINR(commissionAmount) +
-    '\n\nManufacturer details released.'
+    '\n*Confirmed via:* ' + (confirmedBy || 'Unknown') +
+    '\n\nManufacturer details released.' +
+    '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
   return { success: true };
