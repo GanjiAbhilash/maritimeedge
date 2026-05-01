@@ -141,7 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch(GOOGLE_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify({
             type: 'subscriber',
             email: email,
@@ -196,8 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
         shipmentType: rfqForm.querySelector('#shipmentType').value,
         cargoWeight: rfqForm.querySelector('#cargoWeight').value.trim(),
         commodity: rfqForm.querySelector('#commodity').value.trim(),
+        shipmentValue: rfqForm.querySelector('#shipmentValue').value.trim(),
+        containerCount: rfqForm.querySelector('#containerCount').value.trim(),
         incoterm: rfqForm.querySelector('#incoterm').value,
         readyDate: rfqForm.querySelector('#readyDate').value,
+        deliveryDate: rfqForm.querySelector('#deliveryDate').value,
         message: rfqForm.querySelector('#message').value.trim(),
         timestamp: new Date().toISOString()
       };
@@ -206,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
         await fetch(GOOGLE_SCRIPT_URL, {
           method: 'POST',
           mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
           body: JSON.stringify(formData)
         });
 
@@ -223,6 +226,91 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.textContent = 'Error — Try Again';
         submitBtn.style.background = '#EF4444';
         setTimeout(() => {
+          submitBtn.textContent = originalText;
+          submitBtn.style.background = '';
+          submitBtn.disabled = false;
+        }, 3000);
+      }
+    });
+  }
+
+  // ─── Quote Form — URL Params & Submission ──────────────────
+  const quoteForm = document.getElementById('quote-form');
+  if (quoteForm) {
+    var params = new URLSearchParams(window.location.search);
+    var rfqId = params.get('rfq') || '';
+    var partnerId = params.get('partner') || '';
+    var token = params.get('token') || '';
+
+    // Populate hidden fields
+    var rfqIdField = document.getElementById('rfqId');
+    var partnerIdField = document.getElementById('partnerId');
+    var tokenField = document.getElementById('token');
+    if (rfqIdField) rfqIdField.value = rfqId;
+    if (partnerIdField) partnerIdField.value = partnerId;
+    if (tokenField) tokenField.value = token;
+
+    // Populate RFQ summary from URL params (anonymized data from email link)
+    var summaryFields = {
+      'qs-rfqId': rfqId,
+      'qs-origin': params.get('origin') || '—',
+      'qs-destination': params.get('dest') || '—',
+      'qs-cargo': params.get('cargo') || '—',
+      'qs-shipmentType': params.get('type') || '—',
+      'qs-weight': params.get('weight') ? params.get('weight') + ' kg' : '—',
+      'qs-containers': params.get('containers') || '—',
+      'qs-incoterm': params.get('incoterm') || '—',
+      'qs-deadline': params.get('deadline') || '—'
+    };
+
+    Object.keys(summaryFields).forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = summaryFields[id];
+    });
+
+    // Validate required URL params
+    if (!rfqId || !partnerId || !token) {
+      quoteForm.innerHTML = '<div style="text-align:center;padding:48px 0;"><div style="width:64px;height:64px;border-radius:50%;background:#FEE2E2;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;">✕</div><h2 class="form__title" style="margin-bottom:12px;">Invalid Quote Link</h2><p style="color:var(--text-secondary);line-height:1.7;">This quote link is missing required parameters. Please use the link from your email notification.</p><a href="index.html" class="btn btn--primary" style="margin-top:28px;">Back to Home</a></div>';
+      return;
+    }
+
+    quoteForm.addEventListener('submit', async function(e) {
+      e.preventDefault();
+
+      var submitBtn = quoteForm.querySelector('button[type="submit"]');
+      var originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Submitting...';
+      submitBtn.disabled = true;
+
+      var quoteData = {
+        type: 'quote',
+        rfqId: rfqId,
+        partnerId: partnerId,
+        token: token,
+        quotedPrice: quoteForm.querySelector('#quotedPrice').value.trim(),
+        transitTime: quoteForm.querySelector('#transitTime').value.trim(),
+        validity: quoteForm.querySelector('#validity').value.trim(),
+        breakdown: quoteForm.querySelector('#quoteBreakdown').value.trim(),
+        notes: quoteForm.querySelector('#quoteNotes').value.trim(),
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(quoteData)
+        });
+
+        var quoteInfo = document.getElementById('quote-info');
+        if (quoteInfo) quoteInfo.style.display = 'none';
+
+        quoteForm.innerHTML = '<div style="text-align:center;padding:48px 0;"><div style="width:64px;height:64px;border-radius:50%;background:var(--success-light);display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;">✓</div><h2 class="form__title" style="margin-bottom:12px;">Quotation Submitted!</h2><p style="color:var(--text-secondary);margin-top:8px;line-height:1.7;">Thank you for your quote on <strong>' + rfqId + '</strong>. We will notify you if your quote is shortlisted.</p><p style="color:var(--text-light);margin-top:16px;font-size:0.9rem;">You will receive a confirmation via email and Telegram shortly.</p><a href="index.html" class="btn btn--primary" style="margin-top:28px;">Back to Home</a></div>';
+      } catch (error) {
+        submitBtn.textContent = 'Error — Try Again';
+        submitBtn.style.background = '#EF4444';
+        setTimeout(function() {
           submitBtn.textContent = originalText;
           submitBtn.style.background = '';
           submitBtn.disabled = false;

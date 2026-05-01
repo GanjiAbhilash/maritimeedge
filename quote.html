@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Submit Quotation — MaritimeEdge</title>
+  <meta name="description" content="Submit your freight quotation for an RFQ on MaritimeEdge. Logistics partners can provide competitive rates for verified shipment requests.">
+  <meta property="og:title" content="Submit Quotation — MaritimeEdge">
+  <meta property="og:description" content="Logistics partners: submit your freight quotation for verified manufacturer RFQs.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="navbar__logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0EA5E9" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/></svg>
+        Maritime<span>Edge</span>
+      </a>
+      <div class="navbar__menu">
+        <a href="index.html" class="navbar__link">Home</a>
+        <a href="news.html" class="navbar__link">News</a>
+        <a href="jobs.html" class="navbar__link">Jobs</a>
+        <a href="tools.html" class="navbar__link">Tools</a>
+        <a href="directory.html" class="navbar__link">Directory</a>
+        <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
+      </div>
+      <button class="navbar__toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <section class="page-header">
+    <div class="container">
+      <div class="section__eyebrow" style="color:rgba(255,255,255,0.7);">Logistics Partner</div>
+      <h1 class="page-header__title">Submit Your Quotation</h1>
+      <p class="page-header__desc">Provide your best freight rate for this shipment request. The manufacturer will receive competitive quotes from verified providers.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="grid grid--2">
+        <div>
+          <div class="form" id="quote-info" style="margin-bottom: 28px;">
+            <h2 class="form__title">RFQ Summary</h2>
+            <p style="color: var(--text-light); margin-bottom: 16px; font-size: 0.92rem;">These are the shipment details from the manufacturer's request. Quote your best rate below.</p>
+            <div class="quote-summary" id="quote-summary">
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">RFQ Reference</span>
+                <span class="quote-summary__value" id="qs-rfqId">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Origin Region</span>
+                <span class="quote-summary__value" id="qs-origin">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Destination</span>
+                <span class="quote-summary__value" id="qs-destination">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Cargo Type</span>
+                <span class="quote-summary__value" id="qs-cargo">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Shipment Type</span>
+                <span class="quote-summary__value" id="qs-shipmentType">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Weight</span>
+                <span class="quote-summary__value" id="qs-weight">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Containers</span>
+                <span class="quote-summary__value" id="qs-containers">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Incoterm</span>
+                <span class="quote-summary__value" id="qs-incoterm">—</span>
+              </div>
+              <div class="quote-summary__row">
+                <span class="quote-summary__label">Required By</span>
+                <span class="quote-summary__value" id="qs-deadline">—</span>
+              </div>
+            </div>
+          </div>
+
+          <form class="form" id="quote-form">
+            <h2 class="form__title">Your Quotation</h2>
+
+            <input type="hidden" id="rfqId" name="rfqId">
+            <input type="hidden" id="partnerId" name="partnerId">
+            <input type="hidden" id="token" name="token">
+
+            <div class="form__group">
+              <label class="form__label" for="quotedPrice">Quoted Freight Rate (INR) *</label>
+              <input type="number" class="form__input" id="quotedPrice" name="quotedPrice" placeholder="Total freight cost in INR" min="1" required>
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="transitTime">Transit Time (Days) *</label>
+                <input type="number" class="form__input" id="transitTime" name="transitTime" placeholder="e.g., 21" min="1" required>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="validity">Quote Validity (Days) *</label>
+                <input type="number" class="form__input" id="validity" name="validity" placeholder="e.g., 7" min="1" value="7" required>
+              </div>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="quoteBreakdown">Rate Breakdown</label>
+              <textarea class="form__input" id="quoteBreakdown" name="quoteBreakdown" rows="3" placeholder="e.g., Ocean Freight: ₹X, THC: ₹X, Documentation: ₹X" style="resize:vertical;min-height:80px;"></textarea>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="quoteNotes">Additional Notes</label>
+              <textarea class="form__input" id="quoteNotes" name="quoteNotes" rows="3" placeholder="Any conditions, free time, special terms, etc." style="resize:vertical;min-height:80px;"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--lg form__submit" style="width:100%;justify-content:center;">Submit Quotation →</button>
+          </form>
+        </div>
+
+        <div>
+          <div class="form" style="position: sticky; top: 100px;">
+            <h2 class="form__title">How It Works</h2>
+            <ul style="color: var(--text-secondary); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 20px;">
+              <li style="display:flex;align-items:flex-start;gap:14px;">
+                <span style="background:var(--accent-light);color:var(--accent-dark);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">1</span>
+                <div><strong style="color:var(--text);">Review the RFQ</strong><br><span style="font-size:0.9rem;">Check the shipment details on the left. The manufacturer's identity is confidential.</span></div>
+              </li>
+              <li style="display:flex;align-items:flex-start;gap:14px;">
+                <span style="background:var(--accent-light);color:var(--accent-dark);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">2</span>
+                <div><strong style="color:var(--text);">Submit your best rate</strong><br><span style="font-size:0.9rem;">Provide competitive pricing with rate breakdown. Quotes are ranked by price, transit time, and provider rating.</span></div>
+              </li>
+              <li style="display:flex;align-items:flex-start;gap:14px;">
+                <span style="background:var(--accent-light);color:var(--accent-dark);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">3</span>
+                <div><strong style="color:var(--text);">If selected</strong><br><span style="font-size:0.9rem;">You'll be notified if your quote is shortlisted. A small commission fee unlocks the manufacturer's full contact details.</span></div>
+              </li>
+              <li style="display:flex;align-items:flex-start;gap:14px;">
+                <span style="background:var(--success-light);color:var(--success);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">4</span>
+                <div><strong style="color:var(--text);">Close the deal</strong><br><span style="font-size:0.9rem;">Contact the manufacturer directly and handle the shipment. We're here if you need support.</span></div>
+              </li>
+            </ul>
+            <hr style="border: 1px solid var(--border-light); margin: 24px 0;">
+            <p style="font-size: 0.85rem; color: var(--text-light); line-height: 1.7;">Questions? Contact us at <a href="mailto:quotes@maritimeedge.com" style="color: var(--accent-dark);">quotes@maritimeedge.com</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="newsletter">
+    <div class="container">
+      <div class="newsletter__content">
+        <h2 class="newsletter__title">Indian Shipping Intelligence — Weekly</h2>
+        <p class="newsletter__desc">Get port updates, customs circulars, rate trends, and EXIM policy changes delivered to your inbox.</p>
+      </div>
+      <form class="newsletter__form" id="newsletter-form">
+        <input type="email" name="email" class="newsletter__input" placeholder="Enter your email address" required>
+        <button type="submit" class="newsletter__btn">Subscribe</button>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div>
+          <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
+          <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#0EA5E9;">Vasera Global</a> initiative</p>
+          <div class="footer__social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="YouTube">▶</a></div>
+        </div>
+        <div>
+          <h4 class="footer__heading">Platform</h4>
+          <ul class="footer__links"><li><a href="news.html">News</a></li><li><a href="jobs.html">Jobs</a></li><li><a href="tools.html">Tools</a></li><li><a href="directory.html">Directory</a></li></ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Company</h4>
+          <ul class="footer__links"><li><a href="https://vaseraglobal.com" target="_blank" rel="noopener">Vasera Global</a></li><li><a href="contact.html">Contact</a></li><li><a href="#">Advertise</a></li><li><a href="#">List Your Company</a></li></ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Indian Ports</h4>
+          <ul class="footer__links"><li><a href="#">JNPT / Nhava Sheva</a></li><li><a href="#">Mundra</a></li><li><a href="#">Chennai</a></li><li><a href="#">Kochi / Cochin</a></li></ul>
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>&copy; 2026 MaritimeEdge. A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.7);">Vasera Global</a> initiative.</span>
+        <div class="footer__bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

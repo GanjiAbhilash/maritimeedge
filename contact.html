@@ -67,21 +67,23 @@
 
             <div class="form__row">
               <div class="form__group">
-                <label class="form__label" for="origin">Origin Port (India) *</label>
+                <label class="form__label" for="origin">Pickup Location (Warehouse / Factory City) *</label>
                 <select class="form__input" id="origin" name="origin" required>
-                  <option value="">Select Indian Port</option>
-                  <option value="JNPT / Nhava Sheva">JNPT / Nhava Sheva</option>
-                  <option value="Mundra">Mundra</option>
+                  <option value="">Select Region</option>
+                  <option value="Mumbai / Navi Mumbai">Mumbai / Navi Mumbai</option>
                   <option value="Chennai">Chennai</option>
+                  <option value="Ahmedabad / Gandhidham">Ahmedabad / Gandhidham</option>
                   <option value="Kochi / Cochin">Kochi / Cochin</option>
-                  <option value="Kolkata / Haldia">Kolkata / Haldia</option>
+                  <option value="Kolkata">Kolkata</option>
                   <option value="Visakhapatnam">Visakhapatnam</option>
                   <option value="Tuticorin">Tuticorin</option>
-                  <option value="Kandla">Kandla</option>
-                  <option value="Mangalore">Mangalore</option>
-                  <option value="Paradip">Paradip</option>
-                  <option value="Pipavav">Pipavav</option>
-                  <option value="Krishnapatnam">Krishnapatnam</option>
+                  <option value="Bangalore">Bangalore</option>
+                  <option value="Hyderabad">Hyderabad</option>
+                  <option value="Delhi NCR">Delhi NCR</option>
+                  <option value="Pune">Pune</option>
+                  <option value="Coimbatore">Coimbatore</option>
+                  <option value="Jaipur">Jaipur</option>
+                  <option value="Ludhiana">Ludhiana</option>
                   <option value="Other">Other</option>
                 </select>
               </div>
@@ -114,7 +116,18 @@
 
             <div class="form__group">
               <label class="form__label" for="commodity">Commodity / Cargo Description *</label>
-              <input type="text" class="form__input" id="commodity" name="commodity" placeholder="e.g., Cotton textiles, HS code 5208" required>
+              <input type="text" class="form__input" id="commodity" name="commodity" placeholder="e.g., Auto Components, Cotton Textiles" required>
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="shipmentValue">Estimated Shipment Value (INR) *</label>
+                <input type="number" class="form__input" id="shipmentValue" name="shipmentValue" placeholder="e.g., 500000" min="1" required>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="containerCount">Number of Containers / TEUs</label>
+                <input type="number" class="form__input" id="containerCount" name="containerCount" placeholder="e.g., 2" min="1">
+              </div>
             </div>
 
             <div class="form__group">
@@ -130,9 +143,15 @@
               </select>
             </div>
 
-            <div class="form__group">
-              <label class="form__label" for="readyDate">Cargo Ready Date</label>
-              <input type="date" class="form__input" id="readyDate" name="readyDate">
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="readyDate">Cargo Ready Date</label>
+                <input type="date" class="form__input" id="readyDate" name="readyDate">
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="deliveryDate">Preferred Delivery Date</label>
+                <input type="date" class="form__input" id="deliveryDate" name="deliveryDate">
+              </div>
             </div>
 
             <div class="form__group">

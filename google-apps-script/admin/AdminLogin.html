@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MaritimeEdge Admin</title>
+  <style>
+  /* ─── Reset & Base ─────────────────────────────────────── */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Arial, sans-serif; background: #f1f5f9; color: #1e293b; min-height: 100vh; }
+
+  /* ─── Login ────────────────────────────────────────────── */
+  .login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: linear-gradient(135deg, #0A2463 0%, #1e3a8a 100%); }
+  .login-card { background: #fff; padding: 40px; border-radius: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); width: 100%; max-width: 400px; text-align: center; }
+  .login-header { font-size: 1.5rem; font-weight: 800; color: #0A2463; margin-bottom: 4px; }
+  .login-subtitle { color: #64748b; font-size: 0.9rem; margin-bottom: 24px; }
+  .error-text { color: #ef4444; font-size: 0.85rem; margin-top: 12px; }
+
+  /* ─── Inputs ───────────────────────────────────────────── */
+  .input { width: 100%; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 0.95rem; outline: none; transition: border-color 0.2s; }
+  .input:focus { border-color: #0EA5E9; }
+  select.input { cursor: pointer; }
+
+  /* ─── Buttons ──────────────────────────────────────────── */
+  .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border: none; border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; }
+  .btn-primary { background: #0A2463; color: #fff; }
+  .btn-primary:hover { background: #1e3a8a; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-danger:hover { background: #dc2626; }
+  .btn-green { background: #10B981; color: #fff; }
+  .btn-green:hover { background: #059669; }
+  .btn-outline { background: transparent; color: #64748b; border: 2px solid #e2e8f0; }
+  .btn-outline:hover { border-color: #0EA5E9; color: #0EA5E9; }
+  .btn-full { width: 100%; margin-top: 16px; padding: 14px; }
+  .btn-sm { padding: 6px 14px; font-size: 0.8rem; border-radius: 6px; }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  /* ─── Navigation ───────────────────────────────────────── */
+  .admin-nav { display: flex; align-items: center; justify-content: space-between; padding: 0 24px; background: #0A2463; color: #fff; height: 56px; position: sticky; top: 0; z-index: 100; }
+  .nav-brand { font-size: 1.1rem; font-weight: 700; }
+  .nav-tabs { display: flex; gap: 4px; }
+  .nav-tab { background: transparent; color: rgba(255,255,255,0.7); border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+  .nav-tab:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .nav-tab.active { color: #fff; background: rgba(255,255,255,0.2); }
+
+  /* ─── Tabs ─────────────────────────────────────────────── */
+  .tab-content { display: none; padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .tab-content.active { display: block; }
+  .page-title { font-size: 1.3rem; font-weight: 700; color: #0A2463; margin-bottom: 20px; }
+
+  /* ─── Stats Grid ───────────────────────────────────────── */
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+  .stat-card { background: #fff; padding: 20px; border-radius: 12px; text-align: center; border: 1px solid #e2e8f0; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .stat-value { font-size: 2rem; font-weight: 800; color: #0A2463; }
+  .stat-label { font-size: 0.8rem; color: #64748b; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-blue .stat-value { color: #0EA5E9; }
+  .stat-green .stat-value { color: #10B981; }
+  .stat-orange .stat-value { color: #F59E0B; }
+  .stat-purple .stat-value { color: #8b5cf6; }
+  .stat-gold .stat-value { color: #d97706; }
+
+  /* ─── Cards ────────────────────────────────────────────── */
+  .card-list { display: flex; flex-direction: column; gap: 12px; }
+  .card { background: #fff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
+  .card-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: #f8fafc; border-bottom: 1px solid #e2e8f0; }
+  .card-id { font-weight: 700; color: #0A2463; font-size: 0.9rem; }
+  .card-body { padding: 16px; }
+  .card-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #f1f5f9; font-size: 0.88rem; }
+  .card-row:last-child { border-bottom: none; }
+  .card-row span:first-child { color: #64748b; }
+  .card-actions { padding: 12px 16px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; }
+  .price { color: #10B981; }
+  .empty { text-align: center; padding: 40px; color: #94a3b8; }
+
+  /* ─── Status Badges ────────────────────────────────────── */
+  .status { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+  .status-pending { background: #FEF3C7; color: #92400e; }
+  .status-approved, .status-active { background: #D1FAE5; color: #065f46; }
+  .status-quoted { background: #DBEAFE; color: #1e40af; }
+  .status-rejected { background: #FEE2E2; color: #991b1b; }
+  .status-paid { background: #D1FAE5; color: #065f46; }
+  .status-closed { background: #E2E8F0; color: #475569; }
+  .status-payment-sent { background: #FEF3C7; color: #92400e; }
+  .status-submitted { background: #DBEAFE; color: #1e40af; }
+
+  /* ─── Rank Badges ──────────────────────────────────────── */
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; background: #e2e8f0; color: #475569; margin-right: 8px; }
+  .badge-gold { background: #FEF3C7; color: #92400e; }
+  .badge-silver { background: #e2e8f0; color: #475569; }
+  .badge-bronze { background: #FFEDD5; color: #9a3412; }
+
+  /* ─── Modal ────────────────────────────────────────────── */
+  .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+  .modal-content { background: #fff; border-radius: 16px; width: 90%; max-width: 600px; max-height: 80vh; overflow-y: auto; }
+  .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #e2e8f0; }
+  .modal-header h3 { font-size: 1.1rem; color: #0A2463; }
+  .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #94a3b8; }
+  .modal-body { padding: 20px; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 20px; border-top: 1px solid #e2e8f0; }
+
+  /* ─── Checkbox Grid ────────────────────────────────────── */
+  .checkbox-grid { display: flex; flex-direction: column; gap: 8px; max-height: 300px; overflow-y: auto; }
+  .checkbox-label { display: flex; align-items: flex-start; gap: 10px; padding: 10px; border: 1px solid #e2e8f0; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+  .checkbox-label:hover { background: #f8fafc; }
+  .checkbox-label input { margin-top: 3px; }
+  .checkbox-label small { display: block; color: #64748b; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- Login Screen -->
+    <div id="login-screen" class="login-container">
+      <div class="login-card">
+        <div class="login-header">⚓ MaritimeEdge Admin</div>
+        <p class="login-subtitle">Marketplace Management Panel</p>
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <input type="password" id="password" placeholder="Enter admin password" class="input" required autocomplete="current-password">
+          <button type="submit" class="btn btn-primary btn-full" id="login-btn">Login</button>
+        </form>
+        <p id="login-error" class="error-text" style="display:none;">Invalid password</p>
+      </div>
+    </div>
+
+    <!-- Dashboard (loaded after login) -->
+    <div id="dashboard-screen" style="display:none;">
+      <!-- Nav -->
+      <nav class="admin-nav">
+        <div class="nav-brand">⚓ MaritimeEdge Admin</div>
+        <div class="nav-tabs">
+          <button class="nav-tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
+          <button class="nav-tab" data-tab="rfqs" onclick="switchTab('rfqs')">RFQs</button>
+          <button class="nav-tab" data-tab="quotes" onclick="switchTab('quotes')">Quotes</button>
+          <button class="nav-tab" data-tab="payments" onclick="switchTab('payments')">Payments</button>
+          <button class="nav-tab" data-tab="deals" onclick="switchTab('deals')">Deals</button>
+        </div>
+        <button class="btn btn-sm btn-outline" onclick="handleLogout()">Logout</button>
+      </nav>
+
+      <!-- Overview Tab -->
+      <div id="tab-overview" class="tab-content active">
+        <h2 class="page-title">Dashboard Overview</h2>
+        <div class="stats-grid" id="stats-grid">
+          <div class="stat-card"><div class="stat-value" id="stat-pending">—</div><div class="stat-label">Pending RFQs</div></div>
+          <div class="stat-card stat-blue"><div class="stat-value" id="stat-approved">—</div><div class="stat-label">Active RFQs</div></div>
+          <div class="stat-card stat-green"><div class="stat-value" id="stat-quotes">—</div><div class="stat-label">Total Quotes</div></div>
+          <div class="stat-card stat-orange"><div class="stat-value" id="stat-payments">—</div><div class="stat-label">Pending Payments</div></div>
+          <div class="stat-card stat-purple"><div class="stat-value" id="stat-deals">—</div><div class="stat-label">Closed Deals</div></div>
+          <div class="stat-card stat-gold"><div class="stat-value" id="stat-revenue">—</div><div class="stat-label">Total Revenue</div></div>
+        </div>
+      </div>
+
+      <!-- RFQs Tab -->
+      <div id="tab-rfqs" class="tab-content">
+        <h2 class="page-title">RFQ Management</h2>
+        <div id="rfq-list" class="card-list">Loading...</div>
+      </div>
+
+      <!-- Quotes Tab -->
+      <div id="tab-quotes" class="tab-content">
+        <h2 class="page-title">Quote Management</h2>
+        <div class="form-inline">
+          <select id="quote-rfq-select" class="input" onchange="loadQuotesForRFQ()">
+            <option value="">Select an RFQ to view quotes</option>
+          </select>
+        </div>
+        <div id="quotes-list" class="card-list"></div>
+      </div>
+
+      <!-- Payments Tab -->
+      <div id="tab-payments" class="tab-content">
+        <h2 class="page-title">Payment Tracking</h2>
+        <div id="payments-list" class="card-list">Loading...</div>
+      </div>
+
+      <!-- Deals Tab -->
+      <div id="tab-deals" class="tab-content">
+        <h2 class="page-title">Deal Tracking</h2>
+        <div id="deals-list" class="card-list">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Approve RFQ Modal -->
+    <div id="approve-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Approve RFQ: <span id="modal-rfq-id"></span></h3>
+          <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Select logistics partners to send this RFQ to:</p>
+          <div id="partner-checkboxes" class="checkbox-grid"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="confirmApproval()" id="approve-confirm-btn">Approve & Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- WhatsApp Links Modal -->
+    <div id="whatsapp-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>WhatsApp Follow-up Links</h3>
+          <button class="modal-close" onclick="closeWhatsAppModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="whatsapp-links"></div>
+        <div class="modal-footer">
+          <button class="btn btn-primary" onclick="closeWhatsAppModal()">Done</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─── Auth ───────────────────────────────────────────────
+    function handleLogin(e) {
+      e.preventDefault();
+      var pw = document.getElementById('password').value;
+      var btn = document.getElementById('login-btn');
+      btn.textContent = 'Logging in...';
+      btn.disabled = true;
+
+      google.script.run.withSuccessHandler(function(result) {
+        if (result.success) {
+          document.getElementById('login-screen').style.display = 'none';
+          document.getElementById('dashboard-screen').style.display = 'block';
+          loadDashboard();
+        } else {
+          document.getElementById('login-error').style.display = 'block';
+          btn.textContent = 'Login';
+          btn.disabled = false;
+        }
+      }).adminLogin(pw);
+    }
+
+    function handleLogout() {
+      google.script.run.adminLogout();
+      document.getElementById('dashboard-screen').style.display = 'none';
+      document.getElementById('login-screen').style.display = 'block';
+      document.getElementById('password').value = '';
+    }
+
+    // ─── Navigation ─────────────────────────────────────────
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-content').forEach(function(el) { el.classList.remove('active'); });
+      document.querySelectorAll('.nav-tab').forEach(function(el) { el.classList.remove('active'); });
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.querySelector('[data-tab="' + tab + '"]').classList.add('active');
+
+      if (tab === 'overview') loadStats();
+      if (tab === 'rfqs') loadRFQs();
+      if (tab === 'quotes') loadQuoteRFQDropdown();
+      if (tab === 'payments') loadPayments();
+      if (tab === 'deals') loadDeals();
+    }
+
+    function loadDashboard() {
+      loadStats();
+    }
+
+    // ─── Overview Stats ─────────────────────────────────────
+    function loadStats() {
+      google.script.run.withSuccessHandler(function(stats) {
+        if (stats.error) return;
+        document.getElementById('stat-pending').textContent = stats.pendingRFQs;
+        document.getElementById('stat-approved').textContent = stats.approvedRFQs;
+        document.getElementById('stat-quotes').textContent = stats.totalQuotes;
+        document.getElementById('stat-payments').textContent = stats.pendingPayments;
+        document.getElementById('stat-deals').textContent = stats.completedDeals;
+        document.getElementById('stat-revenue').textContent = '\u20B9' + Number(stats.totalRevenue).toLocaleString('en-IN');
+      }).getDashboardStats();
+    }
+
+    // ─── RFQ Management ─────────────────────────────────────
+    var currentPartners = [];
+
+    function loadRFQs() {
+      document.getElementById('rfq-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(rfqs) {
+        if (!rfqs || rfqs.error || !rfqs.length) {
+          document.getElementById('rfq-list').innerHTML = '<p class="empty">' + (rfqs && rfqs.error ? 'Error: ' + rfqs.error : 'No RFQs yet') + '</p>';
+          return;
+        }
+        var html = rfqs.map(function(r) {
+          var statusClass = 'status-' + r.status.toLowerCase();
+          var actions = '';
+          if (r.status === 'Pending') {
+            actions = '<button class="btn btn-sm btn-primary" onclick="openApproveModal(\'' + r.rfqId + '\')">Approve</button>' +
+              '<button class="btn btn-sm btn-danger" onclick="rejectRFQ(\'' + r.rfqId + '\')">Reject</button>';
+          }
+          return '<div class="card">' +
+            '<div class="card-header">' +
+            '<span class="card-id">' + r.rfqId + '</span>' +
+            '<span class="status ' + statusClass + '">' + r.status + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>Route:</span><strong>' + r.origin + ' \u2192 ' + r.destination + '</strong></div>' +
+            '<div class="card-row"><span>Company:</span><strong>' + (r.company || 'N/A') + '</strong></div>' +
+            '<div class="card-row"><span>Cargo:</span><strong>' + (r.commodity || 'N/A') + ' (' + (r.shipmentType || '') + ')</strong></div>' +
+            '<div class="card-row"><span>Value:</span><strong>\u20B9' + Number(r.shipmentValue || 0).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Contact:</span><strong>' + r.fullName + ' | ' + r.email + ' | ' + r.phone + '</strong></div>' +
+            (r.message ? '<div class="card-row"><span>Notes:</span><span>' + r.message + '</span></div>' : '') +
+            '</div>' +
+            '<div class="card-actions">' + actions + '</div></div>';
+        }).join('');
+        document.getElementById('rfq-list').innerHTML = html;
+      }).withFailureHandler(function(err) {
+        document.getElementById('rfq-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error loading RFQs: ' + err.message + '</p>';
+      }).getRFQList();
+    }
+
+    function openApproveModal(rfqId) {
+      document.getElementById('modal-rfq-id').textContent = rfqId;
+      document.getElementById('approve-modal').style.display = 'flex';
+      document.getElementById('partner-checkboxes').innerHTML = 'Loading partners...';
+
+      google.script.run.withSuccessHandler(function(partners) {
+        currentPartners = partners || [];
+        if (!partners || !partners.length) {
+          document.getElementById('partner-checkboxes').innerHTML = '<p>No partners found. Add partners in the Logistics Partners sheet.</p>';
+          return;
+        }
+        var html = partners.filter(function(p) { return p.status === 'Active'; }).map(function(p) {
+          return '<label class="checkbox-label">' +
+            '<input type="checkbox" value="' + p.partnerId + '" class="partner-cb">' +
+            '<span>' + p.companyName + ' <small>(' + (p.categories || '') + ' | ' + (p.portsCovered || '') + ' | Rating: ' + (p.rating || 'N/A') + ')</small></span></label>';
+        }).join('');
+        document.getElementById('partner-checkboxes').innerHTML = html || '<p>No active partners</p>';
+      }).getPartnersList();
+    }
+
+    function closeModal() { document.getElementById('approve-modal').style.display = 'none'; }
+
+    function confirmApproval() {
+      var rfqId = document.getElementById('modal-rfq-id').textContent;
+      var selected = [];
+      document.querySelectorAll('.partner-cb:checked').forEach(function(cb) { selected.push(cb.value); });
+
+      if (!selected.length) { alert('Select at least one partner'); return; }
+
+      var btn = document.getElementById('approve-confirm-btn');
+      btn.textContent = 'Sending...';
+      btn.disabled = true;
+
+      google.script.run.withSuccessHandler(function(result) {
+        btn.textContent = 'Approve & Send';
+        btn.disabled = false;
+        closeModal();
+
+        if (result.success) {
+          alert('RFQ approved! Sent to ' + result.sentCount + ' partners.');
+          loadRFQs();
+          loadStats();
+
+          // Show WhatsApp links if available
+          if (result.whatsappLinks && result.whatsappLinks.length) {
+            showWhatsAppLinks(result.whatsappLinks);
+          }
+        } else {
+          alert('Error: ' + (result.error || 'Unknown'));
+        }
+      }).approveRFQ(rfqId, selected, 'Admin');
+    }
+
+    function showWhatsAppLinks(links) {
+      var html = links.map(function(l) {
+        return '<div class="wa-link-row"><strong>' + l.name + '</strong> (' + l.partnerId + ')<br>' +
+          '<a href="' + l.link + '" target="_blank" rel="noopener" class="btn btn-sm btn-green">Open WhatsApp \u2192</a></div>';
+      }).join('');
+      document.getElementById('whatsapp-links').innerHTML = html;
+      document.getElementById('whatsapp-modal').style.display = 'flex';
+    }
+
+    function closeWhatsAppModal() { document.getElementById('whatsapp-modal').style.display = 'none'; }
+
+    function rejectRFQ(rfqId) {
+      var reason = prompt('Reason for rejection (optional):');
+      google.script.run.withSuccessHandler(function(result) {
+        if (result.success) { alert('RFQ rejected.'); loadRFQs(); loadStats(); }
+        else alert('Error: ' + (result.error || 'Unknown'));
+      }).rejectRFQ(rfqId, reason || '');
+    }
+
+    // ─── Quote Management ───────────────────────────────────
+    function loadQuoteRFQDropdown() {
+      google.script.run.withSuccessHandler(function(rfqs) {
+        var select = document.getElementById('quote-rfq-select');
+        select.innerHTML = '<option value="">Select an RFQ to view quotes</option>';
+        if (!rfqs || rfqs.error) return;
+        rfqs.filter(function(r) { return r.status === 'Approved' || r.status === 'Quoted' || r.status === 'Paid' || r.status === 'Closed'; })
+          .forEach(function(r) {
+            var opt = document.createElement('option');
+            opt.value = r.rfqId;
+            opt.textContent = r.rfqId + ' | ' + r.origin + ' \u2192 ' + r.destination + ' (' + r.status + ')';
+            select.appendChild(opt);
+          });
+      }).getRFQList();
+    }
+
+    function loadQuotesForRFQ() {
+      var rfqId = document.getElementById('quote-rfq-select').value;
+      if (!rfqId) { document.getElementById('quotes-list').innerHTML = ''; return; }
+
+      document.getElementById('quotes-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(quotes) {
+        if (!quotes || !quotes.length) {
+          document.getElementById('quotes-list').innerHTML = '<p class="empty">No quotes for this RFQ yet</p>';
+          return;
+        }
+        var html = quotes.map(function(q) {
+          var rankBadge = q.rank === 1 ? '<span class="badge badge-gold">\uD83C\uDFC6 #1</span>' :
+                         q.rank === 2 ? '<span class="badge badge-silver">#2</span>' :
+                         q.rank === 3 ? '<span class="badge badge-bronze">#3</span>' : '<span class="badge">#' + q.rank + '</span>';
+          var actions = '';
+          if (q.status === 'Submitted') {
+            actions = '<button class="btn btn-sm btn-primary" onclick="sendPayment(\'' + q.quoteId + '\', \'' + q.rfqId + '\')">Send Payment Request</button>';
+          }
+          return '<div class="card">' +
+            '<div class="card-header">' + rankBadge + ' <span class="card-id">' + q.quoteId + '</span>' +
+            '<span class="status status-' + q.status.toLowerCase().replace(/\s/g, '-') + '">' + q.status + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>Company:</span><strong>' + q.companyName + '</strong></div>' +
+            '<div class="card-row"><span>Price:</span><strong class="price">\u20B9' + Number(q.quotedPrice).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Transit:</span><strong>' + q.transitTime + ' days</strong></div>' +
+            '<div class="card-row"><span>Rating:</span><strong>' + (q.partnerRating || 'N/A') + '/5</strong></div>' +
+            '<div class="card-row"><span>Valid:</span><strong>' + q.validity + ' days</strong></div>' +
+            (q.breakdown ? '<div class="card-row"><span>Breakdown:</span><span>' + q.breakdown + '</span></div>' : '') +
+            '</div><div class="card-actions">' + actions + '</div></div>';
+        }).join('');
+        document.getElementById('quotes-list').innerHTML = html;
+      }).withFailureHandler(function(err) {
+        document.getElementById('quotes-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error loading quotes: ' + err.message + '</p>';
+      }).getQuotesForRFQ(rfqId);
+    }
+
+    function sendPayment(quoteId, rfqId) {
+      if (!confirm('Send payment request for ' + quoteId + '?')) return;
+      google.script.run.withSuccessHandler(function(result) {
+        if (result.success) {
+          alert('Payment link sent!\nAmount: \u20B9' + result.amount.toLocaleString('en-IN') + '\nLink: ' + result.link);
+          loadQuotesForRFQ();
+          if (result.whatsappLink) {
+            if (confirm('Open WhatsApp to follow up?')) window.open(result.whatsappLink, '_blank');
+          }
+        } else {
+          alert('Error: ' + (result.error || 'Unknown'));
+        }
+      }).sendPaymentRequest(quoteId, rfqId);
+    }
+
+    // ─── Payments ───────────────────────────────────────────
+    function loadPayments() {
+      document.getElementById('payments-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(payments) {
+        if (!payments || !payments.length) {
+          document.getElementById('payments-list').innerHTML = '<p class="empty">No payments yet</p>';
+          return;
+        }
+        var html = payments.map(function(p) {
+          var actions = '';
+          if (p.status === 'Pending') {
+            actions = '<button class="btn btn-sm btn-green" onclick="confirmPayment(\'' + p.paymentId + '\')">Manual Confirm</button>' +
+              '<a href="' + p.razorpayLinkUrl + '" target="_blank" rel="noopener" class="btn btn-sm btn-outline">View Link</a>';
+          }
+          return '<div class="card">' +
+            '<div class="card-header"><span class="card-id">' + p.paymentId + '</span>' +
+            '<span class="status status-' + p.status.toLowerCase() + '">' + p.status + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>RFQ:</span><strong>' + p.rfqId + '</strong></div>' +
+            '<div class="card-row"><span>Partner:</span><strong>' + p.partnerName + '</strong></div>' +
+            '<div class="card-row"><span>Commission:</span><strong class="price">\u20B9' + Number(p.commissionAmount).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Shipment Value:</span><strong>\u20B9' + Number(p.shipmentValue).toLocaleString('en-IN') + '</strong></div>' +
+            '</div><div class="card-actions">' + actions + '</div></div>';
+        }).join('');
+        document.getElementById('payments-list').innerHTML = html;
+      }).withFailureHandler(function(err) {
+        document.getElementById('payments-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error loading payments: ' + err.message + '</p>';
+      }).getPaymentsList();
+    }
+
+    function confirmPayment(paymentId) {
+      if (!confirm('Confirm payment ' + paymentId + ' as PAID? This will release manufacturer details to the partner.')) return;
+      google.script.run.withSuccessHandler(function(result) {
+        if (result.success) { alert('Payment confirmed! Details released.'); loadPayments(); loadStats(); }
+        else alert('Error: ' + (result.error || 'Unknown'));
+      }).confirmPaymentManual(paymentId);
+    }
+
+    // ─── Deals ──────────────────────────────────────────────
+    function loadDeals() {
+      document.getElementById('deals-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(deals) {
+        if (!deals || !deals.length) {
+          document.getElementById('deals-list').innerHTML = '<p class="empty">No deals yet</p>';
+          return;
+        }
+        var html = deals.map(function(d) {
+          return '<div class="card">' +
+            '<div class="card-header"><span class="card-id">' + d.dealId + '</span>' +
+            '<span class="status status-' + d.dealStatus.toLowerCase() + '">' + d.dealStatus + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>RFQ:</span><strong>' + d.rfqId + '</strong></div>' +
+            '<div class="card-row"><span>Logistics:</span><strong>' + d.logisticsCompany + '</strong></div>' +
+            '<div class="card-row"><span>Manufacturer:</span><strong>' + (d.manufacturerCompany || 'N/A') + '</strong></div>' +
+            '<div class="card-row"><span>Shipment Value:</span><strong>\u20B9' + Number(d.shipmentValue || 0).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Commission:</span><strong class="price">\u20B9' + Number(d.commissionEarned || 0).toLocaleString('en-IN') + '</strong></div>' +
+            '<div class="card-row"><span>Closed:</span><strong>' + (d.detailsSharedAt ? new Date(d.detailsSharedAt).toLocaleDateString() : 'N/A') + '</strong></div>' +
+            '</div></div>';
+        }).join('');
+        document.getElementById('deals-list').innerHTML = html;
+      }).withFailureHandler(function(err) {
+        document.getElementById('deals-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error loading deals: ' + err.message + '</p>';
+      }).getDealsList();
+    }
+
+    // ─── Init: Check if already authenticated ───────────────
+    google.script.run.withSuccessHandler(function(isAuth) {
+      if (isAuth) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('dashboard-screen').style.display = 'block';
+        loadDashboard();
+      }
+    }).isAdminAuthenticated();
+  </script>
+</body>
+</html>
