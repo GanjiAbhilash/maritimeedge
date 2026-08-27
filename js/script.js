@@ -129,47 +129,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const emailInput = newsletterForm.querySelector('input[name="email"]');
       const submitBtn = newsletterForm.querySelector('button[type="submit"]');
+      const msgEl = newsletterForm.querySelector('#newsletter-msg');
       const email = emailInput.value.trim();
 
       if (!email) return;
 
+      const setMessage = (text, kind) => {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.className = 'newsletter__msg' + (kind ? ' newsletter__msg--' + kind : '');
+      };
+
       const originalText = submitBtn.textContent;
+      setMessage('', '');
       submitBtn.textContent = 'Subscribing...';
       submitBtn.disabled = true;
 
+      const finish = (btnText, msg, kind, bg) => {
+        setMessage(msg, kind);
+        submitBtn.textContent = btnText;
+        submitBtn.style.background = bg;
+        submitBtn.style.color = '#fff';
+        setTimeout(() => {
+          submitBtn.textContent = originalText;
+          submitBtn.style.background = '';
+          submitBtn.style.color = '';
+          submitBtn.disabled = false;
+        }, 3000);
+      };
+
+      const payload = JSON.stringify({
+        type: 'subscriber',
+        email: email,
+        timestamp: new Date().toISOString(),
+        source: window.location.pathname
+      });
+
+      // Local record covers the case where the response can't be read cross-origin.
+      const storageKey = 'me_subscribed_emails';
+      const normalized = email.toLowerCase();
+      let known;
       try {
-        await fetch(GOOGLE_SCRIPT_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({
-            type: 'subscriber',
-            email: email,
-            timestamp: new Date().toISOString(),
-            source: window.location.pathname
-          })
-        });
+        known = JSON.parse(localStorage.getItem(storageKey)) || [];
+      } catch (err) {
+        known = [];
+      }
+      let duplicate = known.indexOf(normalized) !== -1;
+
+      try {
+        let responded = false;
+        try {
+          const res = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: payload
+          });
+          responded = true;
+          const result = await res.json();
+          duplicate = result.status === 'duplicate';
+        } catch (readError) {
+          if (!responded) {
+            await fetch(GOOGLE_SCRIPT_URL, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: payload
+            });
+          }
+        }
 
         emailInput.value = '';
-        submitBtn.textContent = '✓ Subscribed!';
-        submitBtn.style.background = '#10B981';
-        submitBtn.style.color = '#fff';
-        setTimeout(() => {
-          submitBtn.textContent = originalText;
-          submitBtn.style.background = '';
-          submitBtn.style.color = '';
-          submitBtn.disabled = false;
-        }, 3000);
+
+        if (duplicate) {
+          finish('Already Subscribed', 'You are already subscribed with this email.', 'info', '#F59E0B');
+        } else {
+          known.push(normalized);
+          try {
+            localStorage.setItem(storageKey, JSON.stringify(known));
+          } catch (err) { /* storage unavailable — non-critical */ }
+          finish('✓ Subscribed!', '✓ Successfully subscribed!', 'success', '#10B981');
+        }
       } catch (error) {
-        submitBtn.textContent = 'Error — Try Again';
-        submitBtn.style.background = '#EF4444';
-        submitBtn.style.color = '#fff';
-        setTimeout(() => {
-          submitBtn.textContent = originalText;
-          submitBtn.style.background = '';
-          submitBtn.style.color = '';
-          submitBtn.disabled = false;
-        }, 3000);
+        finish('Error — Try Again', 'Subscription failed. Please try again.', 'error', '#EF4444');
       }
     });
   }

@@ -1138,8 +1138,29 @@ ul {
 
 .newsletter__form {
   display: flex;
+  flex-wrap: wrap;
   gap: 12px;
   min-width: 420px;
+}
+
+.newsletter__msg {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  min-height: 1.2em;
+}
+
+.newsletter__msg--success {
+  color: #6EE7B7;
+}
+
+.newsletter__msg--error {
+  color: #FCA5A5;
+}
+
+.newsletter__msg--info {
+  color: #FCD34D;
 }
 
 .newsletter__input {
