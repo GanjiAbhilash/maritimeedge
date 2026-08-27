@@ -193,7 +193,7 @@ function updateRFQStatus(rfqId, status) {
 // ─── 1. NEWSLETTER SUBSCRIBER ────────────────────────────────
 
 function handleSubscriber(data) {
-  var sheet = getOrCreateSheet(TABS.SUBSCRIBERS, ['Email', 'Timestamp', 'Source Page']);
+  var sheet = getOrCreateSheet(TABS.SUBSCRIBERS, ['Email', 'Timestamp', 'Source Page', 'Payment Status']);
 
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
@@ -203,9 +203,10 @@ function handleSubscriber(data) {
     }
   }
 
-  sheet.appendRow([data.email, data.timestamp || new Date().toISOString(), data.source || 'unknown']);
-  sendSubscriberAcknowledgment(data.email);
-  return jsonResponse({ status: 'success', message: 'Subscribed' });
+  sheet.appendRow([data.email, data.timestamp || new Date().toISOString(), data.source || 'unknown', 'Payment Pending']);
+  // Confirmation email is sent manually after the subscription fee is verified.
+  // Run sendSubscriberAcknowledgment(email) from the editor once payment is received.
+  return jsonResponse({ status: 'success', message: 'Registered \u2014 awaiting payment' });
 }
 
 function sendSubscriberAcknowledgment(email) {

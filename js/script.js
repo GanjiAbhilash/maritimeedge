@@ -121,6 +121,53 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ─── Subscription Payment Modal ────────────────────────────
+  const SUBSCRIPTION_FEE = '₹2,000';
+
+  function closeSubscriptionPayment() {
+    const modal = document.getElementById('subscribe-modal');
+    if (!modal) return;
+    modal.classList.remove('modal--open');
+    document.body.style.overflow = '';
+  }
+
+  function showSubscriptionPayment(email) {
+    const pathPrefix = window.location.pathname.indexOf('/articles/') !== -1 ? '../' : '';
+    let modal = document.getElementById('subscribe-modal');
+
+    if (!modal) {
+      modal = document.createElement('div');
+      modal.className = 'modal';
+      modal.id = 'subscribe-modal';
+      modal.setAttribute('role', 'dialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-label', 'Complete your subscription payment');
+      modal.innerHTML =
+        '<div class="modal__backdrop" data-close></div>' +
+        '<div class="modal__box">' +
+          '<button type="button" class="modal__close" data-close aria-label="Close">&times;</button>' +
+          '<h3 class="modal__title">Complete Your Subscription — ' + SUBSCRIPTION_FEE + '</h3>' +
+          '<p class="modal__text">Scan the QR code with any UPI app and pay ' + SUBSCRIPTION_FEE + ' to activate your subscription.</p>' +
+          '<img class="modal__qr" src="' + pathPrefix + 'assets/subscription-qr.png" alt="UPI QR code to pay the MaritimeEdge subscription fee">' +
+          '<p class="modal__email"></p>' +
+          '<p class="modal__note">Once we receive your payment, you will get your subscription confirmation email.</p>' +
+        '</div>';
+      document.body.appendChild(modal);
+
+      modal.addEventListener('click', (ev) => {
+        if (ev.target.hasAttribute('data-close')) closeSubscriptionPayment();
+      });
+    }
+
+    modal.querySelector('.modal__email').textContent = 'Subscribing as ' + email;
+    modal.classList.add('modal--open');
+    document.body.style.overflow = 'hidden';
+  }
+
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape') closeSubscriptionPayment();
+  });
+
   // ─── Newsletter Form Submission ────────────────────────────
   const newsletterForm = document.getElementById('newsletter-form');
   if (newsletterForm) {
@@ -207,7 +254,8 @@ document.addEventListener('DOMContentLoaded', () => {
           try {
             localStorage.setItem(storageKey, JSON.stringify(known));
           } catch (err) { /* storage unavailable — non-critical */ }
-          finish('✓ Subscribed!', '✓ Successfully subscribed!', 'success', '#10B981');
+          finish('✓ Registered!', 'Almost there — complete the ₹2,000 payment to activate your subscription.', 'success', '#10B981');
+          showSubscriptionPayment(email);
         }
       } catch (error) {
         finish('Error — Try Again', 'Subscription failed. Please try again.', 'error', '#EF4444');
