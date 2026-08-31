@@ -39,6 +39,9 @@ function getConfig() {
   };
 }
 
+// Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
+var SCRIPT_VERSION = '2026-08-31-registration';
+
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
 
@@ -85,7 +88,15 @@ function doGet(e) {
   var page = (e && e.parameter && e.parameter.page) ? e.parameter.page : 'login';
 
   if (page === 'api-status') {
-    return jsonResponse({ status: 'ok', message: 'MaritimeEdge Marketplace API running' });
+    return jsonResponse({
+      status: 'ok',
+      message: 'MaritimeEdge Marketplace API running',
+      version: SCRIPT_VERSION,
+      spreadsheet: (function() {
+        try { return SpreadsheetApp.openById(getConfig().SHEET_ID).getName(); }
+        catch (err) { return 'ERROR: ' + err.toString(); }
+      })()
+    });
   }
 
   // DEBUG: List all HTML files in this project
