@@ -45,6 +45,7 @@ var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.c
 // Sheet tab names
 var TABS = {
   SUBSCRIBERS: 'Subscribers',
+  REGISTRATIONS: 'Registrations',
   RFQ: 'RFQ Submissions',
   PARTNERS: 'Logistics Partners',
   QUOTES: 'Quotes',
@@ -66,6 +67,8 @@ function doPost(e) {
     switch (data.type) {
       case 'subscriber':
         return handleSubscriber(data);
+      case 'registration':
+        return handleRegistration(data);
       case 'rfq':
         return handleRFQ(data);
       case 'quote':
@@ -231,6 +234,76 @@ function sendSubscriberAcknowledgment(email) {
       '<p style="margin:0;">MaritimeEdge \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</p></div></div>',
     name: 'MaritimeEdge'
   });
+}
+
+// ─── 1B. PARTNER REGISTRATION (Transporter / Co-loader) ──────
+
+function handleRegistration(data) {
+  var headers = [
+    'Reg ID', 'Timestamp', 'Membership', 'Fee (INR)', 'Company Name', 'Email', 'Phone',
+    'Address', 'District', 'State', 'Pincode', 'Country', 'Payment Status', 'Confirmed At', 'Notes'
+  ];
+  var sheet = getOrCreateSheet(TABS.REGISTRATIONS, headers);
+  var regId = generateId('ME-REG-', sheet);
+
+  sheet.appendRow([
+    regId, data.timestamp || new Date().toISOString(), data.membership || '', data.fee || '',
+    data.companyName || '', data.email || '', data.phone || '', data.address || '',
+    data.district || '', data.state || '', data.pincode || '', data.country || 'India',
+    'Payment Pending', '', ''
+  ]);
+
+  sendTelegramToAdmin(
+    '\uD83D\uDCDD *New Partner Registration*\n\n' +
+    '*ID:* ' + regId + '\n' +
+    '*Membership:* ' + (data.membership || 'N/A') + '\n' +
+    '*Company:* ' + (data.companyName || 'N/A') + '\n' +
+    '*Email:* ' + (data.email || 'N/A') + '\n' +
+    '*Phone:* ' + (data.phone || 'N/A') + '\n' +
+    '*Location:* ' + (data.district || 'N/A') + ', ' + (data.state || 'N/A') + ' - ' + (data.pincode || 'N/A') + '\n\n' +
+    'Awaiting payment verification.'
+  );
+
+  // Confirmation email is sent manually after the fee is verified.
+  // Run sendRegistrationConfirmation(regId) from the editor once payment is received.
+  return jsonResponse({ status: 'success', message: 'Registered \u2014 awaiting payment', regId: regId });
+}
+
+// Run manually from the Apps Script editor after verifying payment for a registration.
+function sendRegistrationConfirmation(regId) {
+  var sheet = getSheet(TABS.REGISTRATIONS);
+  if (!sheet) throw new Error('Registrations sheet not found');
+
+  var rowNum = findRowNumberByColumn(sheet, 1, regId);
+  if (rowNum < 0) throw new Error('Registration not found: ' + regId);
+
+  var row = sheet.getRange(rowNum, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var membership = row[2];
+  var companyName = row[4];
+  var email = row[5];
+  var config = getConfig();
+
+  MailApp.sendEmail({
+    to: email,
+    subject: 'Your MaritimeEdge ' + membership + ' Registration Is Confirmed (' + regId + ')',
+    htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">' +
+      '<div style="background:#0A2463;color:#fff;padding:24px;text-align:center;">' +
+      '<h1 style="margin:0;font-size:22px;">\u2693 MaritimeEdge</h1>' +
+      '<p style="margin:4px 0 0;opacity:0.8;font-size:13px;">Indian Shipping Intelligence</p></div>' +
+      '<div style="padding:32px 24px;">' +
+      '<h2 style="color:#0A2463;margin-top:0;">Registration confirmed</h2>' +
+      '<p style="color:#333;line-height:1.6;">We have received your payment. <strong>' + companyName + '</strong> is now registered as a <strong>' + membership + '</strong> partner on MaritimeEdge.</p>' +
+      '<div style="text-align:center;margin:20px 0;padding:16px;background:#EEF2FF;border-radius:8px;">' +
+      '<span style="font-size:1.3rem;font-weight:800;color:#0A2463;">' + regId + '</span></div>' +
+      '<div style="text-align:center;margin:24px 0;">' +
+      '<a href="' + config.SITE_URL + '/directory.html" style="background:#0A2463;color:#fff;padding:12px 24px;text-decoration:none;border-radius:6px;display:inline-block;margin:4px;">Partner Directory</a></div></div>' +
+      '<div style="padding:20px;background:#0F172A;color:#999;text-align:center;font-size:12px;">' +
+      '<p style="margin:0;">MaritimeEdge \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</p></div></div>',
+    name: 'MaritimeEdge'
+  });
+
+  sheet.getRange(rowNum, 13).setValue('Paid');
+  sheet.getRange(rowNum, 14).setValue(new Date().toISOString());
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────

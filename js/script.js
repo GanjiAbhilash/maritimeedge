@@ -323,6 +323,78 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // ─── Registration Form (Transporter / Co-loader) ───────────
+  const registrationForm = document.getElementById('registration-form');
+  if (registrationForm) {
+    const escapeHtml = (str) => String(str).replace(/[&<>"']/g, (ch) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[ch]);
+
+    registrationForm.querySelectorAll('input[name="membership"]').forEach((radio) => {
+      radio.addEventListener('change', () => {
+        registrationForm.querySelectorAll('.plan-card').forEach((card) => {
+          card.classList.toggle('plan-card--active', card.contains(radio) && radio.checked);
+        });
+      });
+    });
+
+    registrationForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const submitBtn = registrationForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Submitting...';
+      submitBtn.disabled = true;
+
+      const selectedPlan = registrationForm.querySelector('input[name="membership"]:checked');
+      const feeLabel = selectedPlan.getAttribute('data-fee-label') || '';
+
+      const formData = {
+        type: 'registration',
+        membership: selectedPlan.value,
+        fee: selectedPlan.getAttribute('data-fee') || '',
+        companyName: registrationForm.querySelector('#companyName').value.trim(),
+        email: registrationForm.querySelector('#regEmail').value.trim(),
+        phone: registrationForm.querySelector('#regPhone').value.trim(),
+        address: registrationForm.querySelector('#address').value.trim(),
+        district: registrationForm.querySelector('#district').value.trim(),
+        state: registrationForm.querySelector('#state').value,
+        pincode: registrationForm.querySelector('#pincode').value.trim(),
+        country: 'India',
+        timestamp: new Date().toISOString()
+      };
+
+      try {
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(formData)
+        });
+
+        registrationForm.innerHTML =
+          '<div class="payment-panel">' +
+            '<h2 class="form__title" style="margin-bottom:8px;">Complete Your ' + escapeHtml(formData.membership) + ' Registration</h2>' +
+            '<p class="payment-panel__text">Scan the QR code below with any UPI app' +
+              (feeLabel ? ' and pay <strong>' + escapeHtml(feeLabel) + '</strong>' : '') + '.</p>' +
+            '<img class="payment-panel__qr" src="assets/subscription-qr.png" alt="UPI QR code to pay the MaritimeEdge registration fee">' +
+            '<p class="payment-panel__meta">Registering <strong>' + escapeHtml(formData.companyName) + '</strong><br>' + escapeHtml(formData.email) + '</p>' +
+            '<p class="payment-panel__note">Once we receive your payment, you will get your confirmation email.</p>' +
+            '<a href="index.html" class="btn btn--primary" style="margin-top:24px;">Back to Home</a>' +
+          '</div>';
+        window.scrollTo({ top: registrationForm.offsetTop - 100, behavior: 'smooth' });
+      } catch (error) {
+        submitBtn.textContent = 'Error — Try Again';
+        submitBtn.style.background = '#EF4444';
+        setTimeout(() => {
+          submitBtn.textContent = originalText;
+          submitBtn.style.background = '';
+          submitBtn.disabled = false;
+        }, 3000);
+      }
+    });
+  }
+
   // ─── Quote Form — URL Params & Submission ──────────────────
   const quoteForm = document.getElementById('quote-form');
   if (quoteForm) {

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register as Transporter or Co-loader — MaritimeEdge</title>
+  <meta name="description" content="Register your Indian transport or co-loading company on MaritimeEdge. Choose a Transporter or Co-loader membership, submit your company details, and pay via UPI QR.">
+  <meta property="og:title" content="Register as Transporter or Co-loader — MaritimeEdge">
+  <meta property="og:description" content="Join the MaritimeEdge network. Register your transport or co-loading company and get listed for Indian EXIM shipment enquiries.">
+  <meta property="og:image" content="https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=1200&q=80">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="container">
+      <a href="index.html" class="navbar__logo">
+        <svg width="32" height="32" viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="15" stroke="#0EA5E9" stroke-width="2"/><path d="M8 20 L16 10 L24 20" stroke="#0EA5E9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="10" x2="16" y2="26" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/><path d="M10 24 Q16 20 22 24" stroke="#0EA5E9" stroke-width="2" stroke-linecap="round"/></svg>
+        Maritime<span>Edge</span>
+      </a>
+      <div class="navbar__menu">
+        <a href="index.html" class="navbar__link">Home</a>
+        <a href="news.html" class="navbar__link">News</a>
+        <a href="jobs.html" class="navbar__link">Jobs</a>
+        <a href="tools.html" class="navbar__link">Tools</a>
+        <a href="directory.html" class="navbar__link">Directory</a>
+        <a href="register.html" class="navbar__link navbar__link--active">Register</a>
+        <a href="contact.html" class="btn btn--primary btn--sm navbar__cta">Get Quote</a>
+      </div>
+      <button class="navbar__toggle" aria-label="Toggle menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  <section class="page-header">
+    <div class="container">
+      <div class="section__eyebrow" style="color:rgba(255,255,255,0.7);">Membership</div>
+      <h1 class="page-header__title">Register Your Company</h1>
+      <p class="page-header__desc">Join the MaritimeEdge partner network as a Transporter or a Co-loader. Select your membership, submit your company details, and complete the payment via UPI.</p>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <div class="grid grid--2">
+        <div>
+          <form class="form" id="registration-form">
+            <h2 class="form__title">Membership Type</h2>
+
+            <div class="plan-select">
+              <label class="plan-card">
+                <input type="radio" name="membership" value="Transporter" data-fee="5000" data-fee-label="₹5,000" required>
+                <span class="plan-card__body">
+                  <span class="plan-card__name">Transporter</span>
+                  <span class="plan-card__note">For fleet owners and road transport operators moving EXIM containers and cargo across India.</span>
+                </span>
+              </label>
+
+              <label class="plan-card">
+                <input type="radio" name="membership" value="Co-loader" data-fee="" data-fee-label="">
+                <span class="plan-card__body">
+                  <span class="plan-card__name">Co-loader</span>
+                  <span class="plan-card__note">For consolidators and co-loading partners handling LCL and groupage cargo.</span>
+                </span>
+              </label>
+            </div>
+
+            <h2 class="form__title" style="margin-top:32px;">Company Details</h2>
+
+            <div class="form__group">
+              <label class="form__label" for="companyName">Company Name *</label>
+              <input type="text" class="form__input" id="companyName" name="companyName" placeholder="Registered company name" required>
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="regEmail">Email Address *</label>
+                <input type="email" class="form__input" id="regEmail" name="email" placeholder="you@company.com" required>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="regPhone">Phone Number *</label>
+                <input type="tel" class="form__input" id="regPhone" name="phone" placeholder="+91 98765 43210" pattern="[0-9+()\s-]{10,18}" required>
+              </div>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="address">Address (India) *</label>
+              <textarea class="form__input" id="address" name="address" rows="3" placeholder="Building / street / area / city" style="resize:vertical;min-height:90px;" required></textarea>
+            </div>
+
+            <div class="form__row">
+              <div class="form__group">
+                <label class="form__label" for="district">District *</label>
+                <input type="text" class="form__input" id="district" name="district" placeholder="e.g., Thane" required>
+              </div>
+              <div class="form__group">
+                <label class="form__label" for="state">State / Union Territory *</label>
+                <select class="form__input" id="state" name="state" required>
+                  <option value="">Select state</option>
+                  <option value="Andhra Pradesh">Andhra Pradesh</option>
+                  <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+                  <option value="Assam">Assam</option>
+                  <option value="Bihar">Bihar</option>
+                  <option value="Chhattisgarh">Chhattisgarh</option>
+                  <option value="Goa">Goa</option>
+                  <option value="Gujarat">Gujarat</option>
+                  <option value="Haryana">Haryana</option>
+                  <option value="Himachal Pradesh">Himachal Pradesh</option>
+                  <option value="Jharkhand">Jharkhand</option>
+                  <option value="Karnataka">Karnataka</option>
+                  <option value="Kerala">Kerala</option>
+                  <option value="Madhya Pradesh">Madhya Pradesh</option>
+                  <option value="Maharashtra">Maharashtra</option>
+                  <option value="Manipur">Manipur</option>
+                  <option value="Meghalaya">Meghalaya</option>
+                  <option value="Mizoram">Mizoram</option>
+                  <option value="Nagaland">Nagaland</option>
+                  <option value="Odisha">Odisha</option>
+                  <option value="Punjab">Punjab</option>
+                  <option value="Rajasthan">Rajasthan</option>
+                  <option value="Sikkim">Sikkim</option>
+                  <option value="Tamil Nadu">Tamil Nadu</option>
+                  <option value="Telangana">Telangana</option>
+                  <option value="Tripura">Tripura</option>
+                  <option value="Uttar Pradesh">Uttar Pradesh</option>
+                  <option value="Uttarakhand">Uttarakhand</option>
+                  <option value="West Bengal">West Bengal</option>
+                  <option value="Andaman and Nicobar Islands">Andaman and Nicobar Islands</option>
+                  <option value="Chandigarh">Chandigarh</option>
+                  <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra and Nagar Haveli and Daman and Diu</option>
+                  <option value="Delhi">Delhi</option>
+                  <option value="Jammu and Kashmir">Jammu and Kashmir</option>
+                  <option value="Ladakh">Ladakh</option>
+                  <option value="Lakshadweep">Lakshadweep</option>
+                  <option value="Puducherry">Puducherry</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form__group">
+              <label class="form__label" for="pincode">PIN Code *</label>
+              <input type="text" class="form__input" id="pincode" name="pincode" placeholder="e.g., 400705" inputmode="numeric" pattern="[1-9][0-9]{5}" maxlength="6" required>
+            </div>
+
+            <button type="submit" class="btn btn--primary btn--lg form__submit" style="width:100%;justify-content:center;">Continue to Payment →</button>
+          </form>
+        </div>
+
+        <div>
+          <div class="form" style="position: sticky; top: 100px;">
+            <h2 class="form__title">How Registration Works</h2>
+            <ol style="color: var(--text-secondary); padding-left: 20px; display: flex; flex-direction: column; gap: 12px; line-height: 1.6;">
+              <li>Choose <strong>Transporter</strong> or <strong>Co-loader</strong> membership.</li>
+              <li>Submit your company details.</li>
+              <li>Scan the UPI QR code shown on the next step and complete the payment.</li>
+              <li>Once we receive your payment, we verify it manually and send your confirmation email.</li>
+            </ol>
+
+            <hr style="border: 1px solid var(--border-light); margin: 24px 0;">
+
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 16px;">What You Get</h3>
+            <ul style="color: var(--text-secondary); list-style: none; padding: 0; display: flex; flex-direction: column; gap: 12px;">
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> Listing in the MaritimeEdge partner directory</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> Access to EXIM shipment enquiries from Indian shippers</li>
+              <li style="display:flex;align-items:center;gap:10px;"><span style="color:var(--success);font-weight:700;">✓</span> Port, customs, and rate intelligence updates</li>
+            </ul>
+
+            <hr style="border: 1px solid var(--border-light); margin: 24px 0;">
+
+            <h3 style="font-size: 1rem; font-weight: 600; margin-bottom: 8px;">📧 Questions?</h3>
+            <p style="color: var(--text-secondary);">Write to us from the <a href="contact.html" style="color: var(--accent-dark);">contact page</a> and our team will get back to you.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="newsletter">
+    <div class="container">
+      <div class="newsletter__content">
+        <h2 class="newsletter__title">Indian Shipping Intelligence</h2>
+      </div>
+      <form class="newsletter__form" id="newsletter-form">
+        <input type="email" name="email" class="newsletter__input" placeholder="Enter your email address" required>
+        <button type="submit" class="newsletter__btn">Subscribe</button>
+        <p class="newsletter__msg" id="newsletter-msg" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="footer__grid">
+        <div>
+          <div class="footer__brand">⚓ Maritime<span>Edge</span></div>
+          <p class="footer__desc">India's trusted platform for sea freight intelligence, port logistics news, and EXIM tools — helping Indian businesses ship to the world.</p>
+          <p class="footer__desc" style="margin-top:8px;font-size:0.8rem;opacity:0.7;">A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:#0EA5E9;">Vasera Global</a> initiative</p>
+          <div class="footer__social"><a href="#" aria-label="Twitter">𝕏</a><a href="#" aria-label="LinkedIn">in</a><a href="#" aria-label="YouTube">▶</a></div><!-- TODO: Link to real social profiles -->
+        </div>
+        <div>
+          <h4 class="footer__heading">Platform</h4>
+          <ul class="footer__links"><li><a href="news.html">News</a></li><li><a href="jobs.html">Jobs</a></li><li><a href="tools.html">Tools</a></li><li><a href="directory.html">Directory</a></li></ul>
+        </div>
+        <div>
+          <h4 class="footer__heading">Company</h4>
+          <ul class="footer__links"><li><a href="https://vaseraglobal.com" target="_blank" rel="noopener">Vasera Global</a></li><li><a href="contact.html">Contact</a></li><li><a href="#">Advertise</a></li><li><a href="register.html">List Your Company</a></li></ul><!-- TODO: Link Advertise to a real page -->
+        </div>
+        <div>
+          <h4 class="footer__heading">Indian Ports</h4>
+          <ul class="footer__links"><li><a href="#">JNPT / Nhava Sheva</a></li><li><a href="#">Mundra</a></li><li><a href="#">Chennai</a></li><li><a href="#">Kochi / Cochin</a></li></ul><!-- TODO: Link to real port pages -->
+        </div>
+      </div>
+      <div class="footer__bottom">
+        <span>&copy; 2026 MaritimeEdge. A <a href="https://vaseraglobal.com" target="_blank" rel="noopener" style="color:rgba(255,255,255,0.7);">Vasera Global</a> initiative.</span>
+        <div class="footer__bottom-links"><a href="#">Privacy Policy</a><a href="#">Terms of Service</a></div><!-- TODO: Link to real policy pages -->
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/script.js"></script>
+</body>
+</html>

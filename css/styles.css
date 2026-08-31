@@ -1291,6 +1291,101 @@ ul {
   margin: 0;
 }
 
+/* ========== Registration — Plan Select & Payment Panel ========== */
+.plan-select {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+  margin-bottom: 8px;
+}
+
+.plan-card {
+  display: block;
+  position: relative;
+  cursor: pointer;
+}
+
+.plan-card input {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.plan-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  height: 100%;
+  padding: 16px 16px 16px 44px;
+  border: 2px solid var(--border-light);
+  border-radius: 12px;
+  transition: all var(--transition);
+}
+
+.plan-card:hover .plan-card__body {
+  border-color: var(--accent);
+}
+
+.plan-card--active .plan-card__body {
+  border-color: var(--accent);
+  background: rgba(14, 165, 233, 0.06);
+}
+
+.plan-card__name {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.plan-card__note {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.payment-panel {
+  text-align: center;
+  padding: 24px 0;
+}
+
+.payment-panel__text {
+  font-size: 0.95rem;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+.payment-panel__qr {
+  display: block;
+  width: 260px;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto 20px;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+}
+
+.payment-panel__meta {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--primary);
+  word-break: break-word;
+  margin: 0 0 16px;
+}
+
+.payment-panel__note {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #047857;
+  background: #ECFDF5;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin: 0;
+}
+
 /* ========== Form ========== */
 .form {
   max-width: 640px;
@@ -1943,6 +2038,9 @@ ul {
   .newsletter__form {
     min-width: 100%;
     flex-direction: column;
+  }
+  .plan-select {
+    grid-template-columns: 1fr;
   }
   .newsletter__title {
     font-size: 1.5rem;
