@@ -6,7 +6,8 @@
 // 1. Create a new Google Apps Script project at https://script.google.com
 // 2. Paste this file as Code.gs
 // 3. Create admin panel HTML files (AdminLogin.html, AdminDashboard.html, AdminStyles.html)
-// 4. Create a Google Sheet with tabs: Subscribers, RFQ Submissions, Logistics Partners, Quotes, Payments, Deals
+// 4. Create a Google Sheet with tabs: Subscribers, RFQ Submissions, Logistics Partners, Quotes, Payments, Deals, Customers, Bookings
+//    (run setupPortalTabs() once to create the Customers and Bookings tabs with the right headers)
 // 5. Set Script Properties (File → Project settings → Script properties):
 //    - SHEET_ID: your Google Sheet ID
 //    - ADMIN_PASSWORD: your admin password
@@ -40,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-08-31-registration';
+var SCRIPT_VERSION = '2026-09-04-customer-portal';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -53,8 +54,30 @@ var TABS = {
   PARTNERS: 'Logistics Partners',
   QUOTES: 'Quotes',
   PAYMENTS: 'Payments',
-  DEALS: 'Deals'
+  DEALS: 'Deals',
+  CUSTOMERS: 'Customers',
+  BOOKINGS: 'Bookings'
 };
+
+var CUSTOMER_HEADERS = [
+  'Customer ID', 'Company Name', 'Contact Name', 'Email', 'Phone',
+  'Password Hash', 'Salt', 'Status', 'Created At', 'Last Login'
+];
+
+var BOOKING_HEADERS = [
+  'Booking ID', 'Customer Email', 'Customer Company', 'Booking Date', 'Shipment Type',
+  'Origin', 'Destination', 'Container No', 'Container Type', 'Commodity',
+  'Weight', 'Packages', 'Incoterm', 'BL Number', 'Vessel', 'Carrier',
+  'ETD', 'ETA', 'Status', 'Transporter Name', 'Transporter Contact', 'Vehicle No',
+  'Driver Name', 'Driver Phone', 'Pickup Date', 'Delivery Date',
+  'Freight Amount', 'Payment Status', 'Last Updated', 'Remarks'
+];
+
+// Emails allowed to sign in through the Admin tab on login.html.
+// Authentication still requires the ADMIN_PASSWORD script property.
+var PORTAL_ADMIN_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
+
+var PORTAL_SESSION_HOURS = 12;
 
 // ─── WEB APP ENTRY POINTS ────────────────────────────────────
 
@@ -76,6 +99,14 @@ function doPost(e) {
         return handleRFQ(data);
       case 'quote':
         return handleQuote(data);
+      case 'customer-signup':
+        return handleCustomerSignup(data);
+      case 'customer-login':
+        return handleCustomerLogin(data);
+      case 'admin-login':
+        return handlePortalAdminLogin(data);
+      case 'customer-bookings':
+        return handleCustomerBookings(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -315,6 +346,223 @@ function sendRegistrationConfirmation(regId) {
 
   sheet.getRange(rowNum, 13).setValue('Paid');
   sheet.getRange(rowNum, 14).setValue(new Date().toISOString());
+}
+
+// ─── 1C. CUSTOMER PORTAL (login.html / dashboard.html) ───────
+
+function portalHash(password, salt) {
+  var bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    salt + '|' + password + '|' + getConfig().QUOTE_TOKEN_SECRET,
+    Utilities.Charset.UTF_8
+  );
+  return bytes.map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+// Constant-time comparison so a wrong password cannot be probed by timing.
+function portalSafeEquals(a, b) {
+  a = String(a || '');
+  b = String(b || '');
+  if (a.length !== b.length) return false;
+  var diff = 0;
+  for (var i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+function portalIssueToken(email, role, expiresAt) {
+  var payload = email + '|' + role + '|' + expiresAt;
+  var sig = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    payload + '|' + getConfig().QUOTE_TOKEN_SECRET,
+    Utilities.Charset.UTF_8
+  ).map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+  return Utilities.base64EncodeWebSafe(payload) + '.' + sig;
+}
+
+function portalVerifyToken(token) {
+  if (!token || token.indexOf('.') < 0) return null;
+  var parts = String(token).split('.');
+  var payload;
+  try {
+    payload = Utilities.newBlob(Utilities.base64DecodeWebSafe(parts[0])).getDataAsString();
+  } catch (err) {
+    return null;
+  }
+  var fields = payload.split('|');
+  if (fields.length !== 3) return null;
+  if (!portalSafeEquals(portalIssueToken(fields[0], fields[1], fields[2]), token)) return null;
+  if (new Date(fields[2]).getTime() < Date.now()) return null;
+  return { email: fields[0], role: fields[1], expiresAt: fields[2] };
+}
+
+function portalIsValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''));
+}
+
+function handleCustomerSignup(data) {
+  var email = String(data.email || '').trim().toLowerCase();
+  var password = String(data.password || '');
+  var companyName = String(data.companyName || '').trim();
+  var contactName = String(data.contactName || '').trim();
+  var phone = String(data.phone || '').trim();
+
+  if (!portalIsValidEmail(email) || password.length < 8 || !companyName || !contactName) {
+    return jsonResponse({ status: 'error', message: 'Please provide a company name, contact name, valid email and a password of at least 8 characters.' });
+  }
+
+  var sheet = getOrCreateSheet(TABS.CUSTOMERS, CUSTOMER_HEADERS);
+
+  if (findRowNumberByColumn(sheet, 4, email) > 0) {
+    return jsonResponse({ status: 'error', message: 'An account already exists for this email address. Please sign in instead.' });
+  }
+
+  var salt = Utilities.getUuid();
+  var now = new Date().toISOString();
+
+  sheet.appendRow([
+    generateId('CUST', sheet), companyName, contactName, email, phone,
+    portalHash(password, salt), salt, 'Active', now, ''
+  ]);
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Your MaritimeEdge account is ready',
+      htmlBody: '<p>Hello ' + contactName + ',</p>' +
+        '<p>Your MaritimeEdge customer account for <strong>' + companyName + '</strong> has been created.</p>' +
+        '<p>Sign in at <a href="' + getConfig().SITE_URL + '/login.html">' + getConfig().SITE_URL + '/login.html</a> to view your bookings, shipment status, and transporter and driver details.</p>' +
+        '<p>\u2014 MaritimeEdge, a Vasera Global initiative</p>',
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* email delivery is best-effort; the account is already created */
+  }
+
+  return jsonResponse({ status: 'success', message: 'Account created.' });
+}
+
+function handleCustomerLogin(data) {
+  var email = String(data.email || '').trim().toLowerCase();
+  var password = String(data.password || '');
+
+  var sheet = getSheet(TABS.CUSTOMERS);
+  var row = sheet ? findRowByColumn(sheet, 4, email) : null;
+
+  // Same generic message for unknown email and wrong password.
+  if (!row || !portalSafeEquals(portalHash(password, row[6]), String(row[5]))) {
+    return jsonResponse({ status: 'error', message: 'Invalid email or password.' });
+  }
+  if (String(row[7]).toLowerCase() !== 'active') {
+    return jsonResponse({ status: 'error', message: 'This account is not active. Please contact MaritimeEdge support.' });
+  }
+
+  var rowNum = findRowNumberByColumn(sheet, 4, email);
+  if (rowNum > 0) sheet.getRange(rowNum, 10).setValue(new Date().toISOString());
+
+  var expiresAt = new Date(Date.now() + PORTAL_SESSION_HOURS * 3600 * 1000).toISOString();
+
+  return jsonResponse({
+    status: 'success',
+    token: portalIssueToken(email, 'customer', expiresAt),
+    email: email,
+    companyName: row[1],
+    contactName: row[2],
+    role: 'customer',
+    expiresAt: expiresAt
+  });
+}
+
+function handlePortalAdminLogin(data) {
+  var email = String(data.email || '').trim().toLowerCase();
+  var password = String(data.password || '');
+  var config = getConfig();
+
+  var allowed = PORTAL_ADMIN_EMAILS.some(function(a) { return a.toLowerCase() === email; });
+
+  if (!allowed || !config.ADMIN_PASSWORD || !portalSafeEquals(password, config.ADMIN_PASSWORD)) {
+    return jsonResponse({ status: 'error', message: 'Invalid administrator credentials.' });
+  }
+
+  var expiresAt = new Date(Date.now() + PORTAL_SESSION_HOURS * 3600 * 1000).toISOString();
+
+  return jsonResponse({
+    status: 'success',
+    token: portalIssueToken(email, 'admin', expiresAt),
+    email: email,
+    companyName: 'MaritimeEdge Operations',
+    contactName: 'Administrator',
+    role: 'admin',
+    expiresAt: expiresAt
+  });
+}
+
+function handleCustomerBookings(data) {
+  var session = portalVerifyToken(data.token);
+  if (!session) {
+    return jsonResponse({ status: 'error', message: 'Your session has expired. Please sign in again.' });
+  }
+
+  var sheet = getSheet(TABS.BOOKINGS);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'success', role: session.role, bookings: [] });
+  }
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, BOOKING_HEADERS.length).getValues();
+  var isAdmin = session.role === 'admin';
+  var bookings = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0]) continue;
+    if (!isAdmin && String(r[1]).trim().toLowerCase() !== session.email) continue;
+
+    bookings.push({
+      bookingId: r[0],
+      customerEmail: r[1],
+      customerCompany: r[2],
+      bookingDate: portalDateOnly(r[3]),
+      shipmentType: r[4],
+      origin: r[5],
+      destination: r[6],
+      containerNo: r[7],
+      containerType: r[8],
+      commodity: r[9],
+      weight: r[10],
+      packages: r[11],
+      incoterm: r[12],
+      blNumber: r[13],
+      vessel: r[14],
+      carrier: r[15],
+      etd: portalDateOnly(r[16]),
+      eta: portalDateOnly(r[17]),
+      status: r[18],
+      transporterName: r[19],
+      transporterContact: r[20],
+      vehicleNo: r[21],
+      driverName: r[22],
+      driverPhone: r[23],
+      pickupDate: portalDateOnly(r[24]),
+      deliveryDate: portalDateOnly(r[25]),
+      freightAmount: r[26],
+      paymentStatus: r[27],
+      lastUpdated: portalDateOnly(r[28]),
+      remarks: r[29]
+    });
+  }
+
+  return jsonResponse({ status: 'success', role: session.role, bookings: bookings });
+}
+
+function portalDateOnly(value) {
+  if (!value) return '';
+  var str = String(value);
+  return str.length >= 10 && str.charAt(4) === '-' ? str.slice(0, 10) : str;
+}
+
+// Run once from the GAS editor to create the Customers and Bookings tabs.
+function setupPortalTabs() {
+  getOrCreateSheet(TABS.CUSTOMERS, CUSTOMER_HEADERS);
+  getOrCreateSheet(TABS.BOOKINGS, BOOKING_HEADERS);
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────
