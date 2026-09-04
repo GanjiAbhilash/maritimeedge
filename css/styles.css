@@ -2543,9 +2543,19 @@ ul {
   color: var(--primary-mid);
 }
 
-.status-pill--pickup {
+.status-pill--assigned {
   background: var(--gold-light);
   color: #92400E;
+}
+
+.status-pill--loading {
+  background: #FFEDD5;
+  color: #9A3412;
+}
+
+.status-pill--loaded {
+  background: #EDE9FE;
+  color: #5B21B6;
 }
 
 .status-pill--transit {
@@ -2553,14 +2563,9 @@ ul {
   color: #075985;
 }
 
-.status-pill--customs {
-  background: #EDE9FE;
-  color: #5B21B6;
-}
-
-.status-pill--port {
-  background: #FFEDD5;
-  color: #9A3412;
+.status-pill--gatein {
+  background: #CFFAFE;
+  color: #155E75;
 }
 
 .status-pill--delivered {

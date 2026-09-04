@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-04-customer-portal';
+var SCRIPT_VERSION = '2026-09-06-jobs-from-rfq';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -56,21 +56,26 @@ var TABS = {
   PAYMENTS: 'Payments',
   DEALS: 'Deals',
   CUSTOMERS: 'Customers',
-  BOOKINGS: 'Bookings'
+  JOBS: 'Jobs'
 };
 
 var CUSTOMER_HEADERS = [
   'Customer ID', 'Company Name', 'Contact Name', 'Email', 'Phone',
-  'Password Hash', 'Salt', 'Status', 'Created At', 'Last Login'
+  'Password Hash', 'Salt', 'Status', 'Created At', 'Last Login',
+  'Reset Token Hash', 'Reset Expires At'
 ];
 
-var BOOKING_HEADERS = [
-  'Booking ID', 'Customer Email', 'Customer Company', 'Booking Date', 'Shipment Type',
-  'Origin', 'Destination', 'Container No', 'Container Type', 'Commodity',
-  'Weight', 'Packages', 'Incoterm', 'BL Number', 'Vessel', 'Carrier',
-  'ETD', 'ETA', 'Status', 'Transporter Name', 'Transporter Contact', 'Vehicle No',
-  'Driver Name', 'Driver Phone', 'Pickup Date', 'Delivery Date',
-  'Freight Amount', 'Payment Status', 'Last Updated', 'Remarks'
+var JOB_HEADERS = [
+  'Job ID', 'RFQ ID', 'Customer Email', 'Transport Company', 'Vehicle Type', 'Vehicle No',
+  'Driver Name', 'Driver Phone', 'Driver DL No', 'Aadhaar Last4', 'Driver Pass No', 'Pass Valid Till',
+  'EIR Number', 'Shipment Status', 'Transport Charges', 'Payment Status',
+  'Pickup Date', 'Delivery Date', 'Created By', 'Created At', 'Last Updated', 'Remarks'
+];
+
+// Road + ICD movement statuses. The dashboard maps these onto its status pills.
+var JOB_STATUSES = [
+  'Booked', 'Vehicle Assigned', 'Reported for Loading', 'Loaded (EIR Issued)',
+  'In Transit', 'Gate-In ICD', 'Delivered', 'On Hold'
 ];
 
 // Emails allowed to sign in through the Admin tab on login.html.
@@ -78,6 +83,18 @@ var BOOKING_HEADERS = [
 var PORTAL_ADMIN_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
 
 var PORTAL_SESSION_HOURS = 12;
+
+// Password reset link lifetime, and the minimum gap between two reset emails
+// to the same address.
+var PORTAL_RESET_MINUTES = 60;
+var PORTAL_RESET_COOLDOWN_MINUTES = 2;
+var PORTAL_MIN_PASSWORD = 8;
+
+// Sign-up is limited to companies already in the Registrations tab whose
+// payment has been confirmed. Column 13 of that tab is written as 'Payment
+// Pending' on submit and 'Paid' by sendRegistrationConfirmation(); any of the
+// values below counts as settled so manual edits like 'Done' also work.
+var PORTAL_PAID_STATUSES = ['done', 'paid', 'completed', 'complete', 'success', 'received', 'confirmed'];
 
 // ─── WEB APP ENTRY POINTS ────────────────────────────────────
 
@@ -107,6 +124,10 @@ function doPost(e) {
         return handlePortalAdminLogin(data);
       case 'customer-bookings':
         return handleCustomerBookings(data);
+      case 'password-reset-request':
+        return handlePasswordResetRequest(data);
+      case 'password-reset-confirm':
+        return handlePasswordResetConfirm(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -399,6 +420,54 @@ function portalIsValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''));
 }
 
+// Reset links are single-use random tokens; only their hash is stored.
+function portalResetTokenHash(token) {
+  return Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    'reset|' + token + '|' + getConfig().QUOTE_TOKEN_SECRET,
+    Utilities.Charset.UTF_8
+  ).map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+function portalRandomToken() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+}
+
+// Returns the registration for an email, preferring a settled row when the
+// same address was submitted more than once.
+function portalFindRegistration(email) {
+  var sheet = getSheet(TABS.REGISTRATIONS);
+  if (!sheet || sheet.getLastRow() <= 1 || sheet.getLastColumn() < 13) return null;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  var pending = null;
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][5] || '').trim().toLowerCase() !== email) continue;
+
+    var status = String(values[i][12] || '').trim().toLowerCase();
+    var found = {
+      regId: String(values[i][0] || ''),
+      companyName: String(values[i][4] || ''),
+      membership: String(values[i][2] || ''),
+      paid: PORTAL_PAID_STATUSES.indexOf(status) > -1
+    };
+
+    if (found.paid) return found;
+    pending = found;
+  }
+
+  return pending;
+}
+
+// Adds the reset columns to a Customers tab created before this feature existed.
+function ensureCustomerColumns(sheet) {
+  if (sheet.getLastColumn() >= CUSTOMER_HEADERS.length) return;
+  sheet.getRange(1, 1, 1, CUSTOMER_HEADERS.length)
+    .setValues([CUSTOMER_HEADERS])
+    .setFontWeight('bold');
+}
+
 function handleCustomerSignup(data) {
   var email = String(data.email || '').trim().toLowerCase();
   var password = String(data.password || '');
@@ -406,14 +475,30 @@ function handleCustomerSignup(data) {
   var contactName = String(data.contactName || '').trim();
   var phone = String(data.phone || '').trim();
 
-  if (!portalIsValidEmail(email) || password.length < 8 || !companyName || !contactName) {
-    return jsonResponse({ status: 'error', message: 'Please provide a company name, contact name, valid email and a password of at least 8 characters.' });
+  if (!portalIsValidEmail(email) || password.length < PORTAL_MIN_PASSWORD || !companyName || !contactName) {
+    return jsonResponse({ status: 'error', message: 'Please provide a company name, contact name, valid email and a password of at least ' + PORTAL_MIN_PASSWORD + ' characters.' });
   }
 
   var sheet = getOrCreateSheet(TABS.CUSTOMERS, CUSTOMER_HEADERS);
+  ensureCustomerColumns(sheet);
 
   if (findRowNumberByColumn(sheet, 4, email) > 0) {
     return jsonResponse({ status: 'error', message: 'An account already exists for this email address. Please sign in instead.' });
+  }
+
+  var registration = portalFindRegistration(email);
+
+  if (!registration) {
+    return jsonResponse({
+      status: 'error',
+      message: 'This email address is not on our registered list. Please complete your registration on the Register page first, then create your account with the same email address.'
+    });
+  }
+  if (!registration.paid) {
+    return jsonResponse({
+      status: 'error',
+      message: 'We have your registration' + (registration.regId ? ' (' + registration.regId + ')' : '') + ', but the payment is not confirmed yet. You can create your account as soon as our team verifies it.'
+    });
   }
 
   var salt = Utilities.getUuid();
@@ -421,7 +506,7 @@ function handleCustomerSignup(data) {
 
   sheet.appendRow([
     generateId('CUST', sheet), companyName, contactName, email, phone,
-    portalHash(password, salt), salt, 'Active', now, ''
+    portalHash(password, salt), salt, 'Active', now, '', '', ''
   ]);
 
   try {
@@ -472,6 +557,134 @@ function handleCustomerLogin(data) {
   });
 }
 
+// ─── 1D. PASSWORD RESET ──────────────────────────────────────
+
+function handlePasswordResetRequest(data) {
+  var email = String(data.email || '').trim().toLowerCase();
+
+  // Always report success so this endpoint cannot be used to discover
+  // which email addresses have an account.
+  var generic = jsonResponse({
+    status: 'success',
+    message: 'If an account exists for that email address, a reset link is on its way.'
+  });
+
+  if (!portalIsValidEmail(email)) return generic;
+
+  var sheet = getSheet(TABS.CUSTOMERS);
+  if (!sheet) return generic;
+  ensureCustomerColumns(sheet);
+
+  var rowNum = findRowNumberByColumn(sheet, 4, email);
+  if (rowNum < 0) return generic;
+
+  var row = sheet.getRange(rowNum, 1, 1, CUSTOMER_HEADERS.length).getValues()[0];
+  if (String(row[7]).toLowerCase() !== 'active') return generic;
+
+  // Throttle repeated requests for the same address.
+  var existingExpiry = row[11] ? new Date(row[11]).getTime() : 0;
+  var issuedAt = existingExpiry - PORTAL_RESET_MINUTES * 60000;
+  if (row[10] && Date.now() - issuedAt < PORTAL_RESET_COOLDOWN_MINUTES * 60000) return generic;
+
+  var token = portalRandomToken();
+  var expiresAt = new Date(Date.now() + PORTAL_RESET_MINUTES * 60000).toISOString();
+
+  sheet.getRange(rowNum, 11).setValue(portalResetTokenHash(token));
+  sheet.getRange(rowNum, 12).setValue(expiresAt);
+
+  var link = getConfig().SITE_URL + '/reset-password.html?token=' + encodeURIComponent(token);
+  sendPasswordResetEmail(email, String(row[2] || 'there'), link);
+
+  return generic;
+}
+
+function handlePasswordResetConfirm(data) {
+  var token = String(data.token || '').trim();
+  var password = String(data.password || '');
+
+  if (!token || password.length < PORTAL_MIN_PASSWORD) {
+    return jsonResponse({ status: 'error', message: 'Choose a new password of at least ' + PORTAL_MIN_PASSWORD + ' characters.' });
+  }
+
+  var sheet = getSheet(TABS.CUSTOMERS);
+  if (!sheet) {
+    return jsonResponse({ status: 'error', message: 'This reset link is no longer valid. Please request a new one.' });
+  }
+  ensureCustomerColumns(sheet);
+
+  var rowNum = findRowNumberByColumn(sheet, 11, portalResetTokenHash(token));
+  if (rowNum < 0) {
+    return jsonResponse({ status: 'error', message: 'This reset link is invalid or has already been used. Please request a new one.' });
+  }
+
+  var row = sheet.getRange(rowNum, 1, 1, CUSTOMER_HEADERS.length).getValues()[0];
+  var expiresAt = row[11] ? new Date(row[11]).getTime() : 0;
+
+  if (!expiresAt || expiresAt < Date.now()) {
+    sheet.getRange(rowNum, 11, 1, 2).setValues([['', '']]);
+    return jsonResponse({ status: 'error', message: 'This reset link has expired. Please request a new one.' });
+  }
+
+  // New salt on every reset, and the token is cleared so the link is single-use.
+  var salt = Utilities.getUuid();
+  sheet.getRange(rowNum, 6).setValue(portalHash(password, salt));
+  sheet.getRange(rowNum, 7).setValue(salt);
+  sheet.getRange(rowNum, 11, 1, 2).setValues([['', '']]);
+
+  sendPasswordChangedEmail(String(row[3]), String(row[2] || 'there'));
+
+  return jsonResponse({ status: 'success', message: 'Your password has been updated. You can now sign in.' });
+}
+
+function portalEmailShell(heading, bodyHtml) {
+  return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">' +
+    '<div style="background:#0A2463;color:#fff;padding:24px;text-align:center;">' +
+    '<h1 style="margin:0;font-size:22px;">\u2693 MaritimeEdge</h1>' +
+    '<p style="margin:4px 0 0;opacity:0.8;font-size:13px;">Indian Shipping Intelligence</p></div>' +
+    '<div style="padding:32px 24px;"><h2 style="color:#0A2463;margin-top:0;">' + heading + '</h2>' +
+    bodyHtml + '</div>' +
+    '<div style="padding:20px;background:#0F172A;color:#999;text-align:center;font-size:12px;">' +
+    '<p style="margin:0;">MaritimeEdge \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</p></div></div>';
+}
+
+function sendPasswordResetEmail(email, contactName, link) {
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Reset your MaritimeEdge password',
+      htmlBody: portalEmailShell('Reset your password',
+        '<p style="color:#333;line-height:1.6;">Hello ' + contactName + ',</p>' +
+        '<p style="color:#333;line-height:1.6;">We received a request to reset the password for your MaritimeEdge customer account. ' +
+        'This link is valid for ' + PORTAL_RESET_MINUTES + ' minutes and can be used once.</p>' +
+        '<div style="text-align:center;margin:28px 0;">' +
+        '<a href="' + link + '" style="background:#0A2463;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;">Choose a New Password</a></div>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If the button does not work, copy this link into your browser:<br>' +
+        '<span style="word-break:break-all;">' + link + '</span></p>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If you did not request this, you can ignore this email \u2014 your password will not change.</p>'),
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* delivery is best-effort; the token stays valid until it expires */
+  }
+}
+
+function sendPasswordChangedEmail(email, contactName) {
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Your MaritimeEdge password was changed',
+      htmlBody: portalEmailShell('Password updated',
+        '<p style="color:#333;line-height:1.6;">Hello ' + contactName + ',</p>' +
+        '<p style="color:#333;line-height:1.6;">The password for your MaritimeEdge customer account was just changed. ' +
+        'You can now sign in at <a href="' + getConfig().SITE_URL + '/login.html">' + getConfig().SITE_URL + '/login.html</a>.</p>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If this was not you, contact us immediately from the MaritimeEdge contact page.</p>'),
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* delivery is best-effort; the password change already succeeded */
+  }
+}
+
 function handlePortalAdminLogin(data) {
   var email = String(data.email || '').trim().toLowerCase();
   var password = String(data.password || '');
@@ -502,55 +715,89 @@ function handleCustomerBookings(data) {
     return jsonResponse({ status: 'error', message: 'Your session has expired. Please sign in again.' });
   }
 
-  var sheet = getSheet(TABS.BOOKINGS);
+  var sheet = getSheet(TABS.JOBS);
   if (!sheet || sheet.getLastRow() <= 1) {
     return jsonResponse({ status: 'success', role: session.role, bookings: [] });
   }
 
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, BOOKING_HEADERS.length).getValues();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, JOB_HEADERS.length).getValues();
   var isAdmin = session.role === 'admin';
-  var bookings = [];
+  var rfqIndex = portalBuildRfqIndex();
+  var jobs = [];
 
   for (var i = 0; i < values.length; i++) {
     var r = safeRow(values[i]);
     if (!r[0]) continue;
-    if (!isAdmin && String(r[1]).trim().toLowerCase() !== session.email) continue;
+    if (!isAdmin && String(r[2]).trim().toLowerCase() !== session.email) continue;
 
-    bookings.push({
-      bookingId: r[0],
-      customerEmail: r[1],
-      customerCompany: r[2],
-      bookingDate: portalDateOnly(r[3]),
-      shipmentType: r[4],
-      origin: r[5],
-      destination: r[6],
-      containerNo: r[7],
-      containerType: r[8],
-      commodity: r[9],
-      weight: r[10],
-      packages: r[11],
-      incoterm: r[12],
-      blNumber: r[13],
-      vessel: r[14],
-      carrier: r[15],
-      etd: portalDateOnly(r[16]),
-      eta: portalDateOnly(r[17]),
-      status: r[18],
-      transporterName: r[19],
-      transporterContact: r[20],
-      vehicleNo: r[21],
-      driverName: r[22],
-      driverPhone: r[23],
-      pickupDate: portalDateOnly(r[24]),
-      deliveryDate: portalDateOnly(r[25]),
-      freightAmount: r[26],
-      paymentStatus: r[27],
-      lastUpdated: portalDateOnly(r[28]),
-      remarks: r[29]
+    // Enquiry fields stay in the RFQ row and are joined on read, so a
+    // correction there never has to be copied into the job.
+    var rfq = rfqIndex[String(r[1]).trim().toUpperCase()] || {};
+
+    jobs.push({
+      jobId: r[0],
+      rfqId: r[1],
+      customerEmail: r[2],
+      customerCompany: rfq.company || '',
+      contactName: rfq.contactName || '',
+      enquiryDate: rfq.timestamp || '',
+      portOfLoading: rfq.origin || '',
+      portOfDischarge: rfq.destination || '',
+      shipmentType: rfq.shipmentType || '',
+      cargoWeight: rfq.cargoWeight || '',
+      cargoType: rfq.commodity || '',
+      containerCount: rfq.containerCount || '',
+      incoterm: rfq.incoterm || '',
+      readyDate: rfq.readyDate || '',
+      transportCompany: r[3],
+      vehicleType: r[4],
+      vehicleNo: r[5],
+      driverName: r[6],
+      driverPhone: r[7],
+      driverLicence: r[8],
+      driverAadhaarLast4: r[9] ? 'XXXX XXXX ' + r[9] : '',
+      driverPassNo: r[10],
+      passValidTill: portalDateOnly(r[11]),
+      eirNumber: r[12],
+      status: r[13],
+      transportCharges: r[14],
+      paymentStatus: r[15],
+      pickupDate: portalDateOnly(r[16]),
+      deliveryDate: portalDateOnly(r[17]),
+      lastUpdated: portalDateOnly(r[20]),
+      remarks: r[21]
     });
   }
 
-  return jsonResponse({ status: 'success', role: session.role, bookings: bookings });
+  return jsonResponse({ status: 'success', role: session.role, bookings: jobs });
+}
+
+// RFQ ID -> enquiry fields, read once per request instead of per job.
+function portalBuildRfqIndex() {
+  var sheet = getSheet(TABS.RFQ);
+  var index = {};
+  if (!sheet || sheet.getLastRow() <= 1) return index;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0]) continue;
+    index[String(r[0]).trim().toUpperCase()] = {
+      timestamp: portalDateOnly(r[2]),
+      contactName: r[3],
+      email: String(r[4]).trim().toLowerCase(),
+      company: r[6],
+      origin: r[7],
+      destination: r[8],
+      shipmentType: r[9],
+      cargoWeight: r[10],
+      commodity: r[11],
+      containerCount: r[13],
+      incoterm: r[14],
+      readyDate: portalDateOnly(r[15])
+    };
+  }
+  return index;
 }
 
 function portalDateOnly(value) {
@@ -559,10 +806,223 @@ function portalDateOnly(value) {
   return str.length >= 10 && str.charAt(4) === '-' ? str.slice(0, 10) : str;
 }
 
-// Run once from the GAS editor to create the Customers and Bookings tabs.
+// Run once from the GAS editor to create the Customers and Jobs tabs.
 function setupPortalTabs() {
   getOrCreateSheet(TABS.CUSTOMERS, CUSTOMER_HEADERS);
-  getOrCreateSheet(TABS.BOOKINGS, BOOKING_HEADERS);
+  getOrCreateSheet(TABS.JOBS, JOB_HEADERS);
+}
+
+// ─── 1E. JOB CREATION FROM RFQ (admin panel) ─────────────────
+
+// Aadhaar is never stored in full: only the last 4 digits are kept, which is
+// all a consignee needs to identify the driver at the gate.
+function portalAadhaarLast4(value) {
+  var digits = String(value || '').replace(/\D/g, '');
+  return digits.length >= 4 ? digits.slice(-4) : '';
+}
+
+function portalJobRfqIds() {
+  var sheet = getSheet(TABS.JOBS);
+  var used = {};
+  if (!sheet || sheet.getLastRow() <= 1) return used;
+
+  var values = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < values.length; i++) {
+    if (values[i][0]) used[String(values[i][0]).trim().toUpperCase()] = true;
+  }
+  return used;
+}
+
+// RFQs that have been approved but do not have a job yet.
+function getRFQsAwaitingJob() {
+  if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+
+  var used = portalJobRfqIds();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  var out = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0] || used[String(r[0]).trim().toUpperCase()]) continue;
+    if (String(r[1]) === 'Rejected') continue;
+
+    out.push({
+      rfqId: r[0], rfqStatus: r[1], email: r[4], company: r[6],
+      origin: r[7], destination: r[8], shipmentType: r[9],
+      cargoWeight: r[10], commodity: r[11]
+    });
+  }
+  return out;
+}
+
+// Everything the Create Job form should pre-fill, so ops only type transport fields.
+function getRFQForJob(rfqId) {
+  if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet) return { error: 'RFQ sheet not found' };
+
+  var row = findRowByColumn(sheet, 1, rfqId);
+  if (!row) return { error: 'RFQ ' + rfqId + ' not found' };
+
+  var r = safeRow(row);
+  var used = portalJobRfqIds();
+
+  return {
+    rfqId: r[0],
+    rfqStatus: r[1],
+    alreadyHasJob: !!used[String(r[0]).trim().toUpperCase()],
+    contactName: r[3],
+    email: String(r[4]).trim().toLowerCase(),
+    phone: r[5],
+    company: r[6],
+    origin: r[7],
+    destination: r[8],
+    shipmentType: r[9],
+    cargoWeight: r[10],
+    commodity: r[11],
+    containerCount: r[13],
+    incoterm: r[14],
+    suggestedCharges: portalBestQuoteForRFQ(rfqId),
+    statuses: JOB_STATUSES
+  };
+}
+
+// Lowest-priced quote on the RFQ, offered as a default for Transport Charges.
+function portalBestQuoteForRFQ(rfqId) {
+  var sheet = getSheet(TABS.QUOTES);
+  if (!sheet || sheet.getLastRow() <= 1) return '';
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 5).getValues();
+  var best = null;
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][1]).trim() !== String(rfqId).trim()) continue;
+    var price = parseFloat(String(values[i][4]).replace(/[^\d.]/g, ''));
+    if (!isNaN(price) && (best === null || price < best)) best = price;
+  }
+  return best === null ? '' : String(best);
+}
+
+function createJobFromRFQ(rfqId, fields) {
+  if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+
+  rfqId = String(rfqId || '').trim();
+  fields = fields || {};
+
+  var rfqSheet = getSheet(TABS.RFQ);
+  if (!rfqSheet) return { error: 'RFQ sheet not found' };
+
+  var rfqRow = findRowByColumn(rfqSheet, 1, rfqId);
+  if (!rfqRow) return { error: 'RFQ ' + rfqId + ' not found' };
+
+  if (portalJobRfqIds()[rfqId.toUpperCase()]) {
+    return { error: 'A job already exists for ' + rfqId + '.' };
+  }
+
+  // Email comes from the RFQ row, never from the form — the dashboard join
+  // depends on it matching the customer account exactly.
+  var customerEmail = String(rfqRow[4] || '').trim().toLowerCase();
+  if (!portalIsValidEmail(customerEmail)) {
+    return { error: 'RFQ ' + rfqId + ' has no valid customer email, so the job could not be linked.' };
+  }
+
+  var status = String(fields.status || 'Booked').trim();
+  if (JOB_STATUSES.indexOf(status) < 0) {
+    return { error: 'Unknown shipment status: ' + status };
+  }
+
+  var sheet = getOrCreateSheet(TABS.JOBS, JOB_HEADERS);
+  var now = new Date().toISOString();
+
+  sheet.appendRow([
+    generateId('ME-JOB-', sheet), rfqId, customerEmail,
+    String(fields.transportCompany || '').trim(),
+    String(fields.vehicleType || '').trim(),
+    String(fields.vehicleNo || '').trim().toUpperCase(),
+    String(fields.driverName || '').trim(),
+    String(fields.driverPhone || '').trim(),
+    String(fields.driverLicence || '').trim().toUpperCase(),
+    portalAadhaarLast4(fields.driverAadhaar),
+    String(fields.driverPassNo || '').trim(),
+    String(fields.passValidTill || '').trim(),
+    String(fields.eirNumber || '').trim().toUpperCase(),
+    status,
+    String(fields.transportCharges || '').trim(),
+    String(fields.paymentStatus || 'Pending').trim(),
+    String(fields.pickupDate || '').trim(),
+    String(fields.deliveryDate || '').trim(),
+    String(fields.createdBy || 'admin').trim(),
+    now, now,
+    String(fields.remarks || '').trim()
+  ]);
+
+  var jobId = sheet.getRange(sheet.getLastRow(), 1).getValue();
+  updateRFQStatus(rfqId, 'Job Created');
+
+  return { success: true, jobId: jobId, rfqId: rfqId, customerEmail: customerEmail };
+}
+
+function updateJob(jobId, fields) {
+  if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+
+  var sheet = getSheet(TABS.JOBS);
+  if (!sheet) return { error: 'Jobs sheet not found' };
+
+  var rowNum = findRowNumberByColumn(sheet, 1, String(jobId || '').trim());
+  if (rowNum < 0) return { error: 'Job ' + jobId + ' not found' };
+
+  fields = fields || {};
+
+  // Job ID, RFQ ID and Customer Email are deliberately not editable here.
+  var editable = {
+    transportCompany: 4, vehicleType: 5, vehicleNo: 6,
+    driverName: 7, driverPhone: 8, driverLicence: 9,
+    driverPassNo: 11, passValidTill: 12, eirNumber: 13,
+    status: 14, transportCharges: 15, paymentStatus: 16,
+    pickupDate: 17, deliveryDate: 18, remarks: 22
+  };
+
+  if (fields.status !== undefined && JOB_STATUSES.indexOf(String(fields.status).trim()) < 0) {
+    return { error: 'Unknown shipment status: ' + fields.status };
+  }
+
+  Object.keys(editable).forEach(function(key) {
+    if (fields[key] === undefined) return;
+    sheet.getRange(rowNum, editable[key]).setValue(String(fields[key]).trim());
+  });
+
+  if (fields.driverAadhaar !== undefined) {
+    sheet.getRange(rowNum, 10).setValue(portalAadhaarLast4(fields.driverAadhaar));
+  }
+
+  sheet.getRange(rowNum, 21).setValue(new Date().toISOString());
+  return { success: true, jobId: jobId };
+}
+
+function getJobsList() {
+  if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+
+  var sheet = getSheet(TABS.JOBS);
+  if (!sheet || sheet.getLastRow() <= 1) return [];
+
+  var rfqIndex = portalBuildRfqIndex();
+
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, JOB_HEADERS.length).getValues().map(function(row) {
+    var r = safeRow(row);
+    var rfq = rfqIndex[String(r[1]).trim().toUpperCase()] || {};
+    return {
+      jobId: r[0], rfqId: r[1], customerEmail: r[2], customerCompany: rfq.company || '',
+      portOfLoading: rfq.origin || '', portOfDischarge: rfq.destination || '',
+      transportCompany: r[3], vehicleType: r[4], vehicleNo: r[5],
+      driverName: r[6], driverPhone: r[7], eirNumber: r[12],
+      status: r[13], transportCharges: r[14], paymentStatus: r[15],
+      lastUpdated: portalDateOnly(r[20])
+    };
+  });
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────

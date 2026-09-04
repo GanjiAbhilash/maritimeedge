@@ -486,10 +486,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   var PORTAL_STATUS = {
     booked:    'Booked',
-    pickup:    'Pickup Scheduled',
+    assigned:  'Vehicle Assigned',
+    loading:   'Reported for Loading',
+    loaded:    'Loaded (EIR Issued)',
     transit:   'In Transit',
-    customs:   'Customs Clearance',
-    port:      'At Destination Port',
+    gatein:    'Gate-In ICD',
     delivered: 'Delivered',
     hold:      'On Hold'
   };
@@ -605,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.location.hash === '#signup') activateAuthTab('signup');
     if (window.location.hash === '#admin') activateAuthTab('admin');
+    if (window.location.hash === '#forgot') activateAuthTab('forgot');
 
     var existing = portalReadSession();
     if (existing) {
@@ -747,7 +749,105 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ─── 10. Bookings Dashboard ────────────────────────────────
+  // ─── 10. Forgot Password Request ───────────────────────────
+  var forgotForm = document.getElementById('forgot-form');
+
+  if (forgotForm) {
+    var forgotMsg = document.getElementById('forgot-msg');
+
+    forgotForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(forgotMsg);
+
+      var email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+      if (!email || email.indexOf('@') < 1) {
+        portalShowMsg(forgotMsg, 'Enter the email address on your account.', 'error');
+        return;
+      }
+
+      portalBusy(forgotForm, true, 'Sending…');
+
+      portalApi({
+        type: 'password-reset-request',
+        email: email,
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(forgotForm, false);
+        // The backend deliberately returns the same answer for known and
+        // unknown addresses, so the wording here must stay neutral too.
+        portalShowMsg(
+          forgotMsg,
+          (res && res.message) || 'If an account exists for that email address, a reset link is on its way.',
+          'success'
+        );
+        forgotForm.reset();
+      }).catch(function() {
+        portalBusy(forgotForm, false);
+        portalShowMsg(forgotMsg, 'The booking portal service is not reachable right now. Please try again shortly.', 'error');
+      });
+    });
+  }
+
+  // ─── 11. Reset Password Page ───────────────────────────────
+  var resetForm = document.getElementById('reset-form');
+
+  if (resetForm) {
+    var resetMsg = document.getElementById('reset-msg');
+    var resetWrap = document.getElementById('reset-wrap');
+    var resetInvalid = document.getElementById('reset-invalid');
+    var resetToken = new URLSearchParams(window.location.search).get('token') || '';
+
+    // Keep the token out of the address bar, history and any outbound referrer.
+    if (resetToken && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!resetToken) {
+      resetWrap.hidden = true;
+      resetInvalid.hidden = false;
+    }
+
+    resetForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(resetMsg);
+
+      var password = document.getElementById('resetPassword').value;
+      var confirm = document.getElementById('resetConfirm').value;
+
+      if (password.length < 8) {
+        portalShowMsg(resetMsg, 'Choose a password of at least 8 characters.', 'error');
+        return;
+      }
+      if (password !== confirm) {
+        portalShowMsg(resetMsg, 'The two passwords do not match.', 'error');
+        return;
+      }
+
+      portalBusy(resetForm, true, 'Saving…');
+
+      portalApi({
+        type: 'password-reset-confirm',
+        token: resetToken,
+        password: password,
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(resetForm, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(resetMsg, (res && res.message) || 'This reset link is invalid or has expired. Please request a new one.', 'error');
+          return;
+        }
+        resetForm.reset();
+        resetToken = '';
+        portalShowMsg(resetMsg, 'Password updated. Redirecting you to sign in…', 'success');
+        setTimeout(function() { window.location.href = 'login.html'; }, 2000);
+      }).catch(function() {
+        portalBusy(resetForm, false);
+        portalShowMsg(resetMsg, 'The booking portal service is not reachable right now. Please try again shortly.', 'error');
+      });
+    });
+  }
+
+  // ─── 12. Bookings Dashboard ────────────────────────────────
   var dashContent = document.getElementById('dash-content');
 
   if (dashContent) {
@@ -787,45 +887,47 @@ document.addEventListener('DOMContentLoaded', () => {
     function statusKey(raw) {
       var value = String(raw || '').toLowerCase();
       if (PORTAL_STATUS[value]) return value;
-      if (value.indexOf('deliver') > -1) return 'delivered';
       if (value.indexOf('hold') > -1 || value.indexOf('cancel') > -1) return 'hold';
-      if (value.indexOf('custom') > -1) return 'customs';
-      if (value.indexOf('port') > -1 || value.indexOf('discharg') > -1) return 'port';
-      if (value.indexOf('transit') > -1 || value.indexOf('sail') > -1) return 'transit';
-      if (value.indexOf('pickup') > -1 || value.indexOf('pick-up') > -1) return 'pickup';
+      if (value.indexOf('deliver') > -1) return 'delivered';
+      if (value.indexOf('gate') > -1 || value.indexOf('icd') > -1) return 'gatein';
+      if (value.indexOf('transit') > -1) return 'transit';
+      if (value.indexOf('eir') > -1 || value.indexOf('loaded') > -1) return 'loaded';
+      if (value.indexOf('loading') > -1 || value.indexOf('reported') > -1) return 'loading';
+      if (value.indexOf('assign') > -1 || value.indexOf('vehicle') > -1) return 'assigned';
       return 'booked';
     }
 
     function normalizeBooking(row) {
       return {
-        id: String(row.bookingId || row.id || '—'),
-        bookingDate: row.bookingDate || '',
+        jobId: String(row.jobId || row.bookingId || row.id || '—'),
+        rfqId: row.rfqId || '—',
+        enquiryDate: row.enquiryDate || '',
         customerCompany: row.customerCompany || row.company || '',
         customerEmail: row.customerEmail || row.email || '',
-        shipmentType: row.shipmentType || '',
-        origin: row.origin || '—',
-        destination: row.destination || '—',
-        containerNo: row.containerNo || '—',
-        containerType: row.containerType || '—',
-        commodity: row.commodity || '—',
-        weight: row.weight || '—',
-        packages: row.packages || '—',
+        contactName: row.contactName || '',
+        portOfLoading: row.portOfLoading || '—',
+        portOfDischarge: row.portOfDischarge || '—',
+        shipmentType: row.shipmentType || '—',
+        cargoType: row.cargoType || '—',
+        cargoWeight: row.cargoWeight || '—',
+        containerCount: row.containerCount || '—',
         incoterm: row.incoterm || '—',
-        blNumber: row.blNumber || '—',
-        vessel: row.vessel || '—',
-        carrier: row.carrier || '—',
-        etd: row.etd || '—',
-        eta: row.eta || '—',
-        status: statusKey(row.status),
-        transporterName: row.transporterName || '—',
-        transporterContact: row.transporterContact || '—',
+        readyDate: row.readyDate || '—',
+        transportCompany: row.transportCompany || '—',
+        vehicleType: row.vehicleType || '—',
         vehicleNo: row.vehicleNo || '—',
         driverName: row.driverName || '—',
         driverPhone: row.driverPhone || '—',
+        driverLicence: row.driverLicence || '—',
+        driverAadhaarLast4: row.driverAadhaarLast4 || '—',
+        driverPassNo: row.driverPassNo || '—',
+        passValidTill: row.passValidTill || '—',
+        eirNumber: row.eirNumber || '—',
+        status: statusKey(row.status),
+        transportCharges: row.transportCharges || '—',
+        paymentStatus: row.paymentStatus || '—',
         pickupDate: row.pickupDate || '—',
         deliveryDate: row.deliveryDate || '—',
-        freightAmount: row.freightAmount || '—',
-        paymentStatus: row.paymentStatus || '—',
         lastUpdated: row.lastUpdated || '',
         remarks: row.remarks || ''
       };
@@ -848,9 +950,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (customer !== 'all' && b.customerEmail !== customer) return false;
         if (!term) return true;
         return [
-          b.id, b.containerNo, b.origin, b.destination, b.transporterName,
-          b.driverName, b.vehicleNo, b.vessel, b.carrier, b.blNumber,
-          b.commodity, b.customerCompany, b.customerEmail
+          b.jobId, b.rfqId, b.portOfLoading, b.portOfDischarge, b.transportCompany,
+          b.driverName, b.vehicleNo, b.vehicleType, b.eirNumber, b.driverLicence,
+          b.cargoType, b.customerCompany, b.customerEmail
         ].join(' ').toLowerCase().indexOf(term) > -1;
       });
     }
@@ -858,9 +960,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderStats() {
       var counts = { total: allBookings.length, transit: 0, port: 0, delivered: 0, hold: 0 };
       allBookings.forEach(function(b) {
-        if (b.status === 'transit' || b.status === 'pickup') counts.transit++;
-        else if (b.status === 'port' || b.status === 'customs') counts.port++;
-        else if (b.status === 'delivered') counts.delivered++;
+        if (b.status === 'transit' || b.status === 'loaded') counts.transit++;
+        else if (b.status === 'assigned' || b.status === 'loading') counts.port++;
+        else if (b.status === 'gatein' || b.status === 'delivered') counts.delivered++;
         else if (b.status === 'hold') counts.hold++;
       });
 
@@ -872,8 +974,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (isAdmin) {
         document.getElementById('stat-total-note').textContent = 'Across all customer accounts';
-      }
-    }
+      }    }
 
     function renderPagination(totalItems) {
       dashPagination.textContent = '';
@@ -920,7 +1021,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       dashRows.textContent = '';
       dashEmpty.hidden = list.length > 0;
-      dashCount.textContent = list.length + (list.length === 1 ? ' booking' : ' bookings');
+      dashCount.textContent = list.length + (list.length === 1 ? ' job' : ' jobs');
 
       slice.forEach(function(b) {
         var tr = document.createElement('tr');
@@ -928,10 +1029,10 @@ document.addEventListener('DOMContentLoaded', () => {
         var idTd = document.createElement('td');
         var idStrong = document.createElement('span');
         idStrong.className = 'booking-table__id';
-        idStrong.textContent = b.id;
+        idStrong.textContent = b.jobId;
         var idSub = document.createElement('span');
         idSub.className = 'booking-table__sub';
-        idSub.textContent = b.shipmentType ? b.shipmentType + ' · ' + b.bookingDate : b.bookingDate;
+        idSub.textContent = b.rfqId;
         idTd.appendChild(idStrong);
         idTd.appendChild(idSub);
         tr.appendChild(idTd);
@@ -946,28 +1047,35 @@ document.addEventListener('DOMContentLoaded', () => {
           tr.appendChild(custTd);
         }
 
-        var routeTd = cell(b.origin + ' → ' + b.destination, 'booking-table__route');
+        var routeTd = cell(b.portOfLoading + ' → ' + b.portOfDischarge, 'booking-table__route');
         var routeSub = document.createElement('span');
         routeSub.className = 'booking-table__sub';
-        routeSub.textContent = b.carrier + ' · ' + b.vessel;
+        routeSub.textContent = b.shipmentType;
         routeTd.appendChild(routeSub);
         tr.appendChild(routeTd);
 
-        var contTd = cell(b.containerNo);
-        var contSub = document.createElement('span');
-        contSub.className = 'booking-table__sub';
-        contSub.textContent = b.containerType;
-        contTd.appendChild(contSub);
-        tr.appendChild(contTd);
+        var cargoTd = cell(b.cargoType);
+        var cargoSub = document.createElement('span');
+        cargoSub.className = 'booking-table__sub';
+        cargoSub.textContent = b.cargoWeight;
+        cargoTd.appendChild(cargoSub);
+        tr.appendChild(cargoTd);
 
-        var transTd = cell(b.transporterName);
+        var vehTd = cell(b.vehicleType);
+        var vehSub = document.createElement('span');
+        vehSub.className = 'booking-table__sub';
+        vehSub.textContent = b.vehicleNo;
+        vehTd.appendChild(vehSub);
+        tr.appendChild(vehTd);
+
+        var transTd = cell(b.transportCompany);
         var transSub = document.createElement('span');
         transSub.className = 'booking-table__sub';
-        transSub.textContent = b.driverName + ' · ' + b.vehicleNo;
+        transSub.textContent = b.driverName + ' · ' + b.driverPhone;
         transTd.appendChild(transSub);
         tr.appendChild(transTd);
 
-        tr.appendChild(cell(b.eta));
+        tr.appendChild(cell(b.eirNumber));
 
         var statusTd = document.createElement('td');
         statusTd.appendChild(statusPill(b.status));
@@ -1026,13 +1134,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openBooking(b) {
       lastFocused = document.activeElement;
-      modalTitle.textContent = 'Booking ' + b.id;
+      modalTitle.textContent = 'Job ' + b.jobId;
 
       modalSubtitle.textContent = '';
       modalSubtitle.appendChild(statusPill(b.status));
       var sub = document.createElement('span');
       sub.style.marginLeft = '10px';
-      sub.textContent = b.origin + ' → ' + b.destination;
+      sub.textContent = b.portOfLoading + ' → ' + b.portOfDischarge;
       modalSubtitle.appendChild(sub);
 
       modalBody.textContent = '';
@@ -1040,44 +1148,48 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isAdmin) {
         modalBody.appendChild(detailBlock('Customer', [
           ['Company', b.customerCompany],
+          ['Contact', b.contactName],
           ['Email', b.customerEmail]
         ]));
       }
 
-      modalBody.appendChild(detailBlock('Booking', [
-        ['Booking Date', b.bookingDate],
+      modalBody.appendChild(detailBlock('Job', [
+        ['Job ID', b.jobId],
+        ['RFQ ID', b.rfqId],
+        ['Enquiry Date', b.enquiryDate],
+        ['Port of Loading', b.portOfLoading],
+        ['Port of Discharge', b.portOfDischarge],
+        ['Cargo Ready Date', b.readyDate]
+      ]));
+
+      modalBody.appendChild(detailBlock('Cargo', [
+        ['Cargo Type', b.cargoType],
+        ['Cargo Weight', b.cargoWeight],
         ['Shipment Type', b.shipmentType],
-        ['Incoterm', b.incoterm],
-        ['Commodity', b.commodity],
-        ['Gross Weight', b.weight],
-        ['Packages', b.packages]
+        ['Container Count', b.containerCount],
+        ['Incoterm', b.incoterm]
       ]));
 
-      modalBody.appendChild(detailBlock('Container & Voyage', [
-        ['Container No.', b.containerNo],
-        ['Container Type', b.containerType],
-        ['Carrier', b.carrier],
-        ['Vessel / Voyage', b.vessel],
-        ['BL / AWB No.', b.blNumber],
-        ['ETD', b.etd],
-        ['ETA', b.eta]
-      ]));
-
-      modalBody.appendChild(detailBlock('Transporter', [
-        ['Transporter', b.transporterName],
-        ['Transporter Contact', b.transporterContact],
+      modalBody.appendChild(detailBlock('Transport', [
+        ['Transport Company', b.transportCompany],
+        ['Type of Vehicle', b.vehicleType],
         ['Vehicle No.', b.vehicleNo],
+        ['EIR Number', b.eirNumber],
         ['Pickup Date', b.pickupDate],
         ['Delivery Date', b.deliveryDate]
       ]));
 
       modalBody.appendChild(detailBlock('Driver', [
         ['Driver Name', b.driverName],
-        ['Driver Phone', b.driverPhone]
+        ['Driver Phone', b.driverPhone],
+        ['Driving Licence', b.driverLicence],
+        ['Aadhaar', b.driverAadhaarLast4],
+        ['Driver Pass No.', b.driverPassNo],
+        ['Pass Valid Till', b.passValidTill]
       ]));
 
       modalBody.appendChild(detailBlock('Commercials', [
-        ['Freight Amount', b.freightAmount],
+        ['Transport Charges', b.transportCharges],
         ['Payment Status', b.paymentStatus],
         ['Last Updated', b.lastUpdated],
         ['Remarks', b.remarks]
@@ -1113,9 +1225,9 @@ document.addEventListener('DOMContentLoaded', () => {
         (isAdmin ? 'Administrator · ' : 'Customer account · ') + session.email;
 
       if (isAdmin) {
-        document.getElementById('dash-heading').textContent = 'All Customer Bookings';
+        document.getElementById('dash-heading').textContent = 'All Customer Jobs';
         document.getElementById('dash-subheading').textContent =
-          'Administrator view — every booking across all customer accounts, with transporter and driver assignment.';
+          'Administrator view — every job across all customer accounts, with transporter, driver and EIR details.';
         customerColHead.hidden = false;
         dashCustomer.hidden = false;
       }
@@ -1154,7 +1266,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (session.demo) {
         allBookings = portalDemoBookings().map(normalizeBooking);
         showNotice(
-          'Sample data — the booking service is not connected, so these records are generated placeholders for layout preview only. They are not real bookings.',
+          'Sample data — the job service is not connected, so these records are generated placeholders for layout preview only. They are not real jobs.',
           'warn'
         );
         renderIdentity();
@@ -1183,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderStats();
         renderTable();
         if (!allBookings.length) {
-          showNotice('No bookings are linked to this account yet. Once a booking is confirmed it will appear here automatically.', 'info');
+          showNotice('No jobs are linked to this account yet. Once our team creates a job against one of your enquiries it will appear here automatically.', 'info');
         }
         revealDashboard();
       }).catch(function() {
@@ -1218,38 +1330,43 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookings();
   }
 
-  // ─── 11. Sample Booking Generator (layout preview only) ────
+  // ─── 13. Sample Job Generator (layout preview only) ────────
   // Produces clearly-labelled placeholder records. Never presented as real
-  // booking data — the dashboard always shows a warning banner alongside it.
+  // job data — the dashboard always shows a warning banner alongside it.
   function portalDemoBookings() {
     var params = new URLSearchParams(window.location.search);
     var requested = parseInt(params.get('records'), 10);
     var count = Math.min(100, Math.max(10, isNaN(requested) ? 42 : requested));
 
-    var seed = 20260904;
+    var seed = 20260906;
     var rand = function(max) {
       seed = (seed * 1103515245 + 12345) % 2147483648;
       return Math.floor((seed / 2147483648) * max);
     };
 
-    var indianPorts = [
-      'Nhava Sheva (JNPT)', 'Mundra', 'Chennai', 'Kattupalli', 'Cochin',
+    var loadPorts = [
+      'Chennai', 'Nhava Sheva (JNPT)', 'Mundra', 'Kattupalli', 'Cochin',
       'Visakhapatnam', 'Haldia', 'Deendayal (Kandla)', 'V.O. Chidambaranar (Tuticorin)',
       'Krishnapatnam', 'Pipavav', 'Kamarajar (Ennore)'
     ];
-    var foreignPorts = [
-      'Jebel Ali', 'Rotterdam', 'Singapore', 'Hamburg', 'Shanghai',
-      'Antwerp', 'Busan', 'Port Klang', 'Felixstowe', 'Genoa', 'Durban', 'Jeddah'
+    var dischargePorts = [
+      'ICD Bangalore', 'ICD Tughlakabad', 'ICD Whitefield', 'ICD Sanathnagar',
+      'ICD Hyderabad', 'ICD Ludhiana', 'ICD Nagpur', 'ICD Coimbatore',
+      'ICD Ahmedabad', 'ICD Jaipur'
     ];
-    var containerTypes = ["20' GP", "40' GP", "40' HC", "20' Reefer", "40' Reefer", 'LCL'];
+    var vehicleTypes = [
+      '20ft Trailer', '40ft Trailer', 'Multi-Axle Trailer', 'Low-Bed Trailer',
+      '32ft Single Axle', '32ft Multi Axle', 'Container Truck 14T', 'Reefer Truck'
+    ];
+    var shipmentTypes = ['FCL 20ft', 'FCL 40ft', 'FCL 40ft HC', 'LCL', 'Reefer 20ft', 'Reefer 40ft'];
     var commodities = [
       'Cotton yarn', 'Basmati rice', 'Pharmaceutical formulations', 'Auto components',
       'Granite slabs', 'Frozen marine products', 'Engineering goods', 'Textiles and apparel',
       'Ceramic tiles', 'Organic chemicals', 'Leather goods', 'Spices'
     ];
     var incoterms = ['FOB', 'CIF', 'CFR', 'EXW', 'DAP', 'FCA'];
-    var statuses = ['booked', 'pickup', 'transit', 'customs', 'port', 'delivered', 'hold'];
-    var stateCodes = ['MH', 'GJ', 'TN', 'KL', 'AP', 'KA', 'DL', 'HR', 'RJ', 'WB'];
+    var statuses = ['booked', 'assigned', 'loading', 'loaded', 'transit', 'gatein', 'delivered', 'hold'];
+    var stateCodes = ['TN', 'KA', 'MH', 'GJ', 'AP', 'TS', 'KL', 'DL', 'HR', 'WB'];
     var companies = [
       'Sample Exports Pvt Ltd', 'Sample Textiles Ltd', 'Sample Agro Traders',
       'Sample Pharma Exports', 'Sample Engineering Works'
@@ -1265,48 +1382,47 @@ document.addEventListener('DOMContentLoaded', () => {
       return d.toISOString().slice(0, 10);
     };
 
-    var bookings = [];
+    var jobs = [];
     for (var i = 1; i <= count; i++) {
-      var isExport = rand(10) < 7;
-      var indian = indianPorts[rand(indianPorts.length)];
-      var foreign = foreignPorts[rand(foreignPorts.length)];
       var status = statuses[rand(statuses.length)];
       var booked = -(rand(120) + 5);
       var num = pad(i, 3);
+      var hasEir = ['loaded', 'transit', 'gatein', 'delivered'].indexOf(status) > -1;
 
-      bookings.push({
-        bookingId: 'ME-2026-' + num,
-        bookingDate: dateStr(booked),
+      jobs.push({
+        jobId: 'ME-JOB-' + num,
+        rfqId: 'ME-RFQ-' + num,
+        enquiryDate: dateStr(booked),
         customerCompany: companies[i % companies.length],
         customerEmail: 'sample' + ((i % companies.length) + 1) + '@example.com',
-        shipmentType: isExport ? 'Export FCL' : 'Import FCL',
-        origin: isExport ? indian : foreign,
-        destination: isExport ? foreign : indian,
-        containerNo: 'MEXU' + pad(1000000 + rand(8999999), 7),
-        containerType: containerTypes[rand(containerTypes.length)],
-        commodity: commodities[rand(commodities.length)],
-        weight: (2000 + rand(24000)) + ' kg',
-        packages: (10 + rand(900)) + ' pkgs',
+        contactName: 'Contact ' + pad((i % 9) + 1, 2) + ' [placeholder]',
+        portOfLoading: loadPorts[rand(loadPorts.length)],
+        portOfDischarge: dischargePorts[rand(dischargePorts.length)],
+        shipmentType: shipmentTypes[rand(shipmentTypes.length)],
+        cargoType: commodities[rand(commodities.length)],
+        cargoWeight: (2000 + rand(24000)) + ' kg',
+        containerCount: String(1 + rand(4)),
         incoterm: incoterms[rand(incoterms.length)],
-        blNumber: 'BL' + pad(100000 + rand(899999), 6),
-        vessel: 'Sample Vessel ' + pad(rand(20) + 1, 2) + ' / V.' + pad(rand(60) + 1, 3),
-        carrier: 'Sample Carrier Line ' + pad(rand(8) + 1, 2),
-        etd: dateStr(booked + 6),
-        eta: dateStr(booked + 6 + 12 + rand(20)),
-        status: status,
-        transporterName: 'Sample Transporter ' + pad((i % 12) + 1, 2),
-        transporterContact: '+91 22 XXXX XX' + pad((i % 12) + 1, 2),
+        readyDate: dateStr(booked + 3),
+        transportCompany: 'Sample Transporter ' + pad((i % 12) + 1, 2),
+        vehicleType: vehicleTypes[rand(vehicleTypes.length)],
         vehicleNo: stateCodes[i % stateCodes.length] + ' ' + pad(rand(48) + 1, 2) + ' XX ' + pad(rand(9999), 4),
         driverName: 'Driver ' + pad((i % 25) + 1, 2) + ' [placeholder]',
         driverPhone: '+91 98XXX XX' + pad((i % 25) + 1, 3),
-        pickupDate: dateStr(booked + 2),
-        deliveryDate: status === 'delivered' ? dateStr(booked + 30 + rand(10)) : 'Not yet delivered',
-        freightAmount: '₹' + (60 + rand(240)) + ',000 [placeholder]',
+        driverLicence: stateCodes[i % stateCodes.length] + pad(rand(99), 2) + ' XXXXXXX' + pad((i % 25) + 1, 3),
+        driverAadhaarLast4: 'XXXX XXXX ' + pad(rand(9999), 4),
+        driverPassNo: 'PASS-' + pad(rand(9999), 4),
+        passValidTill: dateStr(booked + 90),
+        eirNumber: hasEir ? 'EIR' + pad(100000 + rand(899999), 6) : 'Not issued yet',
+        status: status,
+        transportCharges: '₹' + (18 + rand(60)) + ',000 [placeholder]',
         paymentStatus: rand(2) ? 'Paid' : 'Pending',
+        pickupDate: dateStr(booked + 4),
+        deliveryDate: status === 'delivered' ? dateStr(booked + 12 + rand(8)) : 'Not yet delivered',
         lastUpdated: dateStr(-rand(5)),
-        remarks: 'SAMPLE RECORD — not a real booking'
+        remarks: 'SAMPLE RECORD — not a real job'
       });
     }
-    return bookings;
+    return jobs;
   }
 });

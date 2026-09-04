@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My Bookings Dashboard — MaritimeEdge</title>
-  <meta name="description" content="MaritimeEdge customer dashboard — view your total bookings, live shipment status, container and vessel details, assigned transporter and driver information.">
+  <title>My Jobs Dashboard — MaritimeEdge</title>
+  <meta name="description" content="MaritimeEdge customer dashboard — track every job: ports of loading and discharge, cargo, assigned transporter and driver, EIR number, shipment status and payment status.">
   <meta name="robots" content="noindex, nofollow">
-  <meta property="og:title" content="My Bookings Dashboard — MaritimeEdge">
-  <meta property="og:description" content="Track shipment status, container details, transporter and driver information for every MaritimeEdge booking.">
+  <meta property="og:title" content="My Jobs Dashboard — MaritimeEdge">
+  <meta property="og:description" content="Track shipment status, transporter, driver and EIR details for every MaritimeEdge job.">
   <meta property="og:image" content="https://images.unsplash.com/photo-1494412574643-ff11b0a5c1c3?w=1200&q=80">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚓</text></svg>">
   <link rel="stylesheet" href="css/styles.css">
@@ -37,8 +37,8 @@
   <section class="page-header">
     <div class="container">
       <div class="section__eyebrow" style="color:rgba(255,255,255,0.7);">Customer Portal</div>
-      <h1 class="page-header__title" id="dash-heading">My Bookings</h1>
-      <p class="page-header__desc" id="dash-subheading">Booking count, live status, shipment details, and the transporter and driver assigned to each movement.</p>
+      <h1 class="page-header__title" id="dash-heading">My Jobs</h1>
+      <p class="page-header__desc" id="dash-subheading">Job ID, ports, cargo, assigned transporter and driver, EIR number, shipment status and payment status for every movement.</p>
     </div>
   </section>
 
@@ -70,45 +70,46 @@
 
         <div class="stat-grid">
           <div class="stat-card">
-            <div class="stat-card__label">Total Bookings</div>
+            <div class="stat-card__label">Total Jobs</div>
             <div class="stat-card__value" id="stat-total">0</div>
-            <div class="stat-card__note" id="stat-total-note">All bookings on this account</div>
+            <div class="stat-card__note" id="stat-total-note">All jobs on this account</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">In Transit</div>
             <div class="stat-card__value" id="stat-transit">0</div>
-            <div class="stat-card__note">Moving to port, sailing or inland</div>
+            <div class="stat-card__note">Loaded and moving to destination</div>
           </div>
           <div class="stat-card">
-            <div class="stat-card__label">At Port / Customs</div>
+            <div class="stat-card__label">Awaiting Loading</div>
             <div class="stat-card__value" id="stat-port">0</div>
-            <div class="stat-card__note">Awaiting clearance or delivery order</div>
+            <div class="stat-card__note">Vehicle assigned or reported for loading</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">Delivered</div>
             <div class="stat-card__value" id="stat-delivered">0</div>
-            <div class="stat-card__note">Completed door or CFS delivery</div>
+            <div class="stat-card__note">Completed door or ICD delivery</div>
           </div>
           <div class="stat-card">
             <div class="stat-card__label">On Hold</div>
             <div class="stat-card__value" id="stat-hold">0</div>
-            <div class="stat-card__note">Needs action from you or the carrier</div>
+            <div class="stat-card__note">Needs action from you or the transporter</div>
           </div>
         </div>
 
         <div class="dash__panel">
           <div class="dash__toolbar">
-            <label class="form__label" for="dash-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Search bookings</label>
-            <input type="search" class="dash__search" id="dash-search" placeholder="Search booking ID, container, port, transporter or driver">
+            <label class="form__label" for="dash-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Search jobs</label>
+            <input type="search" class="dash__search" id="dash-search" placeholder="Search job ID, RFQ ID, port, EIR, vehicle, transporter or driver">
 
             <label class="form__label" for="dash-status" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Filter by status</label>
             <select class="dash__select" id="dash-status">
               <option value="all">All statuses</option>
               <option value="booked">Booked</option>
-              <option value="pickup">Pickup Scheduled</option>
+              <option value="assigned">Vehicle Assigned</option>
+              <option value="loading">Reported for Loading</option>
+              <option value="loaded">Loaded (EIR Issued)</option>
               <option value="transit">In Transit</option>
-              <option value="customs">Customs Clearance</option>
-              <option value="port">At Destination Port</option>
+              <option value="gatein">Gate-In ICD</option>
               <option value="delivered">Delivered</option>
               <option value="hold">On Hold</option>
             </select>
@@ -125,12 +126,13 @@
             <table class="booking-table">
               <thead>
                 <tr>
-                  <th scope="col">Booking</th>
+                  <th scope="col">Job / RFQ</th>
                   <th scope="col" id="th-customer" hidden>Customer</th>
-                  <th scope="col">Route</th>
-                  <th scope="col">Container</th>
+                  <th scope="col">POL &rarr; POD</th>
+                  <th scope="col">Cargo</th>
+                  <th scope="col">Vehicle</th>
                   <th scope="col">Transporter / Driver</th>
-                  <th scope="col">ETA</th>
+                  <th scope="col">EIR</th>
                   <th scope="col">Status</th>
                   <th scope="col"><span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Actions</span></th>
                 </tr>
@@ -139,7 +141,7 @@
             </table>
           </div>
 
-          <div class="dash__empty" id="dash-empty" hidden>No bookings match your current search or filter.</div>
+          <div class="dash__empty" id="dash-empty" hidden>No jobs match your current search or filter.</div>
 
           <div class="pagination" id="dash-pagination"></div>
         </div>
@@ -152,10 +154,10 @@
     <div class="modal__card">
       <div class="modal__head">
         <div>
-          <div class="modal__title" id="booking-modal-title">Booking</div>
+          <div class="modal__title" id="booking-modal-title">Job</div>
           <div class="modal__subtitle" id="booking-modal-subtitle"></div>
         </div>
-        <button type="button" class="modal__close" id="booking-modal-close" aria-label="Close booking details">✕</button>
+        <button type="button" class="modal__close" id="booking-modal-close" aria-label="Close job details">&#10005;</button>
       </div>
       <div class="modal__body" id="booking-modal-body"></div>
     </div>
