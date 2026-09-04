@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-04-customer-portal';
+var SCRIPT_VERSION = '2026-09-04-password-reset';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -61,7 +61,8 @@ var TABS = {
 
 var CUSTOMER_HEADERS = [
   'Customer ID', 'Company Name', 'Contact Name', 'Email', 'Phone',
-  'Password Hash', 'Salt', 'Status', 'Created At', 'Last Login'
+  'Password Hash', 'Salt', 'Status', 'Created At', 'Last Login',
+  'Reset Token Hash', 'Reset Expires At'
 ];
 
 var BOOKING_HEADERS = [
@@ -78,6 +79,18 @@ var BOOKING_HEADERS = [
 var PORTAL_ADMIN_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
 
 var PORTAL_SESSION_HOURS = 12;
+
+// Password reset link lifetime, and the minimum gap between two reset emails
+// to the same address.
+var PORTAL_RESET_MINUTES = 60;
+var PORTAL_RESET_COOLDOWN_MINUTES = 2;
+var PORTAL_MIN_PASSWORD = 8;
+
+// Sign-up is limited to companies already in the Registrations tab whose
+// payment has been confirmed. Column 13 of that tab is written as 'Payment
+// Pending' on submit and 'Paid' by sendRegistrationConfirmation(); any of the
+// values below counts as settled so manual edits like 'Done' also work.
+var PORTAL_PAID_STATUSES = ['done', 'paid', 'completed', 'complete', 'success', 'received', 'confirmed'];
 
 // ─── WEB APP ENTRY POINTS ────────────────────────────────────
 
@@ -107,6 +120,10 @@ function doPost(e) {
         return handlePortalAdminLogin(data);
       case 'customer-bookings':
         return handleCustomerBookings(data);
+      case 'password-reset-request':
+        return handlePasswordResetRequest(data);
+      case 'password-reset-confirm':
+        return handlePasswordResetConfirm(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -399,6 +416,54 @@ function portalIsValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''));
 }
 
+// Reset links are single-use random tokens; only their hash is stored.
+function portalResetTokenHash(token) {
+  return Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    'reset|' + token + '|' + getConfig().QUOTE_TOKEN_SECRET,
+    Utilities.Charset.UTF_8
+  ).map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+}
+
+function portalRandomToken() {
+  return (Utilities.getUuid() + Utilities.getUuid()).replace(/-/g, '');
+}
+
+// Returns the registration for an email, preferring a settled row when the
+// same address was submitted more than once.
+function portalFindRegistration(email) {
+  var sheet = getSheet(TABS.REGISTRATIONS);
+  if (!sheet || sheet.getLastRow() <= 1 || sheet.getLastColumn() < 13) return null;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 13).getValues();
+  var pending = null;
+
+  for (var i = 0; i < values.length; i++) {
+    if (String(values[i][5] || '').trim().toLowerCase() !== email) continue;
+
+    var status = String(values[i][12] || '').trim().toLowerCase();
+    var found = {
+      regId: String(values[i][0] || ''),
+      companyName: String(values[i][4] || ''),
+      membership: String(values[i][2] || ''),
+      paid: PORTAL_PAID_STATUSES.indexOf(status) > -1
+    };
+
+    if (found.paid) return found;
+    pending = found;
+  }
+
+  return pending;
+}
+
+// Adds the reset columns to a Customers tab created before this feature existed.
+function ensureCustomerColumns(sheet) {
+  if (sheet.getLastColumn() >= CUSTOMER_HEADERS.length) return;
+  sheet.getRange(1, 1, 1, CUSTOMER_HEADERS.length)
+    .setValues([CUSTOMER_HEADERS])
+    .setFontWeight('bold');
+}
+
 function handleCustomerSignup(data) {
   var email = String(data.email || '').trim().toLowerCase();
   var password = String(data.password || '');
@@ -406,14 +471,30 @@ function handleCustomerSignup(data) {
   var contactName = String(data.contactName || '').trim();
   var phone = String(data.phone || '').trim();
 
-  if (!portalIsValidEmail(email) || password.length < 8 || !companyName || !contactName) {
-    return jsonResponse({ status: 'error', message: 'Please provide a company name, contact name, valid email and a password of at least 8 characters.' });
+  if (!portalIsValidEmail(email) || password.length < PORTAL_MIN_PASSWORD || !companyName || !contactName) {
+    return jsonResponse({ status: 'error', message: 'Please provide a company name, contact name, valid email and a password of at least ' + PORTAL_MIN_PASSWORD + ' characters.' });
   }
 
   var sheet = getOrCreateSheet(TABS.CUSTOMERS, CUSTOMER_HEADERS);
+  ensureCustomerColumns(sheet);
 
   if (findRowNumberByColumn(sheet, 4, email) > 0) {
     return jsonResponse({ status: 'error', message: 'An account already exists for this email address. Please sign in instead.' });
+  }
+
+  var registration = portalFindRegistration(email);
+
+  if (!registration) {
+    return jsonResponse({
+      status: 'error',
+      message: 'This email address is not on our registered list. Please complete your registration on the Register page first, then create your account with the same email address.'
+    });
+  }
+  if (!registration.paid) {
+    return jsonResponse({
+      status: 'error',
+      message: 'We have your registration' + (registration.regId ? ' (' + registration.regId + ')' : '') + ', but the payment is not confirmed yet. You can create your account as soon as our team verifies it.'
+    });
   }
 
   var salt = Utilities.getUuid();
@@ -421,7 +502,7 @@ function handleCustomerSignup(data) {
 
   sheet.appendRow([
     generateId('CUST', sheet), companyName, contactName, email, phone,
-    portalHash(password, salt), salt, 'Active', now, ''
+    portalHash(password, salt), salt, 'Active', now, '', '', ''
   ]);
 
   try {
@@ -470,6 +551,134 @@ function handleCustomerLogin(data) {
     role: 'customer',
     expiresAt: expiresAt
   });
+}
+
+// ─── 1D. PASSWORD RESET ──────────────────────────────────────
+
+function handlePasswordResetRequest(data) {
+  var email = String(data.email || '').trim().toLowerCase();
+
+  // Always report success so this endpoint cannot be used to discover
+  // which email addresses have an account.
+  var generic = jsonResponse({
+    status: 'success',
+    message: 'If an account exists for that email address, a reset link is on its way.'
+  });
+
+  if (!portalIsValidEmail(email)) return generic;
+
+  var sheet = getSheet(TABS.CUSTOMERS);
+  if (!sheet) return generic;
+  ensureCustomerColumns(sheet);
+
+  var rowNum = findRowNumberByColumn(sheet, 4, email);
+  if (rowNum < 0) return generic;
+
+  var row = sheet.getRange(rowNum, 1, 1, CUSTOMER_HEADERS.length).getValues()[0];
+  if (String(row[7]).toLowerCase() !== 'active') return generic;
+
+  // Throttle repeated requests for the same address.
+  var existingExpiry = row[11] ? new Date(row[11]).getTime() : 0;
+  var issuedAt = existingExpiry - PORTAL_RESET_MINUTES * 60000;
+  if (row[10] && Date.now() - issuedAt < PORTAL_RESET_COOLDOWN_MINUTES * 60000) return generic;
+
+  var token = portalRandomToken();
+  var expiresAt = new Date(Date.now() + PORTAL_RESET_MINUTES * 60000).toISOString();
+
+  sheet.getRange(rowNum, 11).setValue(portalResetTokenHash(token));
+  sheet.getRange(rowNum, 12).setValue(expiresAt);
+
+  var link = getConfig().SITE_URL + '/reset-password.html?token=' + encodeURIComponent(token);
+  sendPasswordResetEmail(email, String(row[2] || 'there'), link);
+
+  return generic;
+}
+
+function handlePasswordResetConfirm(data) {
+  var token = String(data.token || '').trim();
+  var password = String(data.password || '');
+
+  if (!token || password.length < PORTAL_MIN_PASSWORD) {
+    return jsonResponse({ status: 'error', message: 'Choose a new password of at least ' + PORTAL_MIN_PASSWORD + ' characters.' });
+  }
+
+  var sheet = getSheet(TABS.CUSTOMERS);
+  if (!sheet) {
+    return jsonResponse({ status: 'error', message: 'This reset link is no longer valid. Please request a new one.' });
+  }
+  ensureCustomerColumns(sheet);
+
+  var rowNum = findRowNumberByColumn(sheet, 11, portalResetTokenHash(token));
+  if (rowNum < 0) {
+    return jsonResponse({ status: 'error', message: 'This reset link is invalid or has already been used. Please request a new one.' });
+  }
+
+  var row = sheet.getRange(rowNum, 1, 1, CUSTOMER_HEADERS.length).getValues()[0];
+  var expiresAt = row[11] ? new Date(row[11]).getTime() : 0;
+
+  if (!expiresAt || expiresAt < Date.now()) {
+    sheet.getRange(rowNum, 11, 1, 2).setValues([['', '']]);
+    return jsonResponse({ status: 'error', message: 'This reset link has expired. Please request a new one.' });
+  }
+
+  // New salt on every reset, and the token is cleared so the link is single-use.
+  var salt = Utilities.getUuid();
+  sheet.getRange(rowNum, 6).setValue(portalHash(password, salt));
+  sheet.getRange(rowNum, 7).setValue(salt);
+  sheet.getRange(rowNum, 11, 1, 2).setValues([['', '']]);
+
+  sendPasswordChangedEmail(String(row[3]), String(row[2] || 'there'));
+
+  return jsonResponse({ status: 'success', message: 'Your password has been updated. You can now sign in.' });
+}
+
+function portalEmailShell(heading, bodyHtml) {
+  return '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">' +
+    '<div style="background:#0A2463;color:#fff;padding:24px;text-align:center;">' +
+    '<h1 style="margin:0;font-size:22px;">\u2693 MaritimeEdge</h1>' +
+    '<p style="margin:4px 0 0;opacity:0.8;font-size:13px;">Indian Shipping Intelligence</p></div>' +
+    '<div style="padding:32px 24px;"><h2 style="color:#0A2463;margin-top:0;">' + heading + '</h2>' +
+    bodyHtml + '</div>' +
+    '<div style="padding:20px;background:#0F172A;color:#999;text-align:center;font-size:12px;">' +
+    '<p style="margin:0;">MaritimeEdge \u2014 A <a href="https://vaseraglobal.com" style="color:#0EA5E9;">Vasera Global</a> Initiative</p></div></div>';
+}
+
+function sendPasswordResetEmail(email, contactName, link) {
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Reset your MaritimeEdge password',
+      htmlBody: portalEmailShell('Reset your password',
+        '<p style="color:#333;line-height:1.6;">Hello ' + contactName + ',</p>' +
+        '<p style="color:#333;line-height:1.6;">We received a request to reset the password for your MaritimeEdge customer account. ' +
+        'This link is valid for ' + PORTAL_RESET_MINUTES + ' minutes and can be used once.</p>' +
+        '<div style="text-align:center;margin:28px 0;">' +
+        '<a href="' + link + '" style="background:#0A2463;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;">Choose a New Password</a></div>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If the button does not work, copy this link into your browser:<br>' +
+        '<span style="word-break:break-all;">' + link + '</span></p>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If you did not request this, you can ignore this email \u2014 your password will not change.</p>'),
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* delivery is best-effort; the token stays valid until it expires */
+  }
+}
+
+function sendPasswordChangedEmail(email, contactName) {
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Your MaritimeEdge password was changed',
+      htmlBody: portalEmailShell('Password updated',
+        '<p style="color:#333;line-height:1.6;">Hello ' + contactName + ',</p>' +
+        '<p style="color:#333;line-height:1.6;">The password for your MaritimeEdge customer account was just changed. ' +
+        'You can now sign in at <a href="' + getConfig().SITE_URL + '/login.html">' + getConfig().SITE_URL + '/login.html</a>.</p>' +
+        '<p style="color:#666;line-height:1.6;font-size:13px;">If this was not you, contact us immediately from the MaritimeEdge contact page.</p>'),
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* delivery is best-effort; the password change already succeeded */
+  }
 }
 
 function handlePortalAdminLogin(data) {

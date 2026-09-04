@@ -70,13 +70,18 @@
               <p class="auth__msg" id="login-msg" role="status" aria-live="polite"></p>
             </form>
 
-            <p class="auth__switch">Don't have an account yet? <button type="button" class="auth__link-btn" data-auth-goto="signup">Create one now</button></p>
+            <p class="auth__switch" style="margin-top:14px;"><button type="button" class="auth__link-btn" data-auth-goto="forgot">Forgot your password?</button></p>
+            <p class="auth__switch" style="margin-top:6px;">Don't have an account yet? <button type="button" class="auth__link-btn" data-auth-goto="signup">Create one now</button></p>
           </div>
 
           <!-- Customer sign up -->
           <div class="auth__panel" id="auth-panel-signup" role="tabpanel" aria-labelledby="auth-tab-signup" hidden>
             <h2 class="auth__title">Create your customer account</h2>
-            <p class="auth__lead">Free for shippers and consignees. Your bookings are linked to the email address you register with.</p>
+            <p class="auth__lead">Accounts are available to companies already registered with MaritimeEdge.</p>
+
+            <div class="notice notice--info">
+              <span><strong>Registered companies only.</strong> You can create an account only if your company has completed registration on the <a href="register.html">Register page</a> <em>and</em> our team has confirmed your registration payment. Use the same email address you gave during registration — any other address will be declined.</span>
+            </div>
 
             <form class="form" id="signup-form" novalidate>
               <div class="form__group">
@@ -96,7 +101,7 @@
               <div class="form__group">
                 <label class="form__label" for="signupEmail">Email Address *</label>
                 <input type="email" class="form__input" id="signupEmail" name="email" autocomplete="email" placeholder="you@company.com" required>
-                <p class="auth__hint">Use the same email that appears on your booking confirmations.</p>
+                <p class="auth__hint">Must match the email address on your MaritimeEdge registration, with payment confirmed.</p>
               </div>
               <div class="form__row">
                 <div class="form__group">
@@ -118,7 +123,8 @@
               <p class="auth__msg" id="signup-msg" role="status" aria-live="polite"></p>
             </form>
 
-            <p class="auth__switch">Already registered? <button type="button" class="auth__link-btn" data-auth-goto="login">Sign in instead</button></p>
+            <p class="auth__switch">Already have an account? <button type="button" class="auth__link-btn" data-auth-goto="login">Sign in instead</button></p>
+            <p class="auth__switch" style="margin-top:6px;">Company not registered yet? <a href="register.html">Register your company first</a></p>
           </div>
 
           <!-- Admin sign in -->
@@ -140,6 +146,23 @@
             </form>
 
             <p class="auth__switch">Not an administrator? <button type="button" class="auth__link-btn" data-auth-goto="login">Customer sign in</button></p>
+          </div>
+
+          <!-- Forgot password -->
+          <div class="auth__panel" id="auth-panel-forgot" role="region" aria-label="Reset your password" hidden>
+            <h2 class="auth__title">Reset your password</h2>
+            <p class="auth__lead">Enter the email address on your account. If it matches a MaritimeEdge customer account we will email you a link to choose a new password. The link works once and expires after 60 minutes.</p>
+
+            <form class="form" id="forgot-form" novalidate>
+              <div class="form__group">
+                <label class="form__label" for="forgotEmail">Email Address *</label>
+                <input type="email" class="form__input" id="forgotEmail" name="email" autocomplete="email" placeholder="you@company.com" required>
+              </div>
+              <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;">Send Reset Link</button>
+              <p class="auth__msg" id="forgot-msg" role="status" aria-live="polite"></p>
+            </form>
+
+            <p class="auth__switch">Remembered it? <button type="button" class="auth__link-btn" data-auth-goto="login">Back to sign in</button></p>
           </div>
         </div>
 

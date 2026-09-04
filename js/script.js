@@ -605,6 +605,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (window.location.hash === '#signup') activateAuthTab('signup');
     if (window.location.hash === '#admin') activateAuthTab('admin');
+    if (window.location.hash === '#forgot') activateAuthTab('forgot');
 
     var existing = portalReadSession();
     if (existing) {
@@ -747,7 +748,105 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // ─── 10. Bookings Dashboard ────────────────────────────────
+  // ─── 10. Forgot Password Request ───────────────────────────
+  var forgotForm = document.getElementById('forgot-form');
+
+  if (forgotForm) {
+    var forgotMsg = document.getElementById('forgot-msg');
+
+    forgotForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(forgotMsg);
+
+      var email = document.getElementById('forgotEmail').value.trim().toLowerCase();
+      if (!email || email.indexOf('@') < 1) {
+        portalShowMsg(forgotMsg, 'Enter the email address on your account.', 'error');
+        return;
+      }
+
+      portalBusy(forgotForm, true, 'Sending…');
+
+      portalApi({
+        type: 'password-reset-request',
+        email: email,
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(forgotForm, false);
+        // The backend deliberately returns the same answer for known and
+        // unknown addresses, so the wording here must stay neutral too.
+        portalShowMsg(
+          forgotMsg,
+          (res && res.message) || 'If an account exists for that email address, a reset link is on its way.',
+          'success'
+        );
+        forgotForm.reset();
+      }).catch(function() {
+        portalBusy(forgotForm, false);
+        portalShowMsg(forgotMsg, 'The booking portal service is not reachable right now. Please try again shortly.', 'error');
+      });
+    });
+  }
+
+  // ─── 11. Reset Password Page ───────────────────────────────
+  var resetForm = document.getElementById('reset-form');
+
+  if (resetForm) {
+    var resetMsg = document.getElementById('reset-msg');
+    var resetWrap = document.getElementById('reset-wrap');
+    var resetInvalid = document.getElementById('reset-invalid');
+    var resetToken = new URLSearchParams(window.location.search).get('token') || '';
+
+    // Keep the token out of the address bar, history and any outbound referrer.
+    if (resetToken && window.history.replaceState) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
+    if (!resetToken) {
+      resetWrap.hidden = true;
+      resetInvalid.hidden = false;
+    }
+
+    resetForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(resetMsg);
+
+      var password = document.getElementById('resetPassword').value;
+      var confirm = document.getElementById('resetConfirm').value;
+
+      if (password.length < 8) {
+        portalShowMsg(resetMsg, 'Choose a password of at least 8 characters.', 'error');
+        return;
+      }
+      if (password !== confirm) {
+        portalShowMsg(resetMsg, 'The two passwords do not match.', 'error');
+        return;
+      }
+
+      portalBusy(resetForm, true, 'Saving…');
+
+      portalApi({
+        type: 'password-reset-confirm',
+        token: resetToken,
+        password: password,
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(resetForm, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(resetMsg, (res && res.message) || 'This reset link is invalid or has expired. Please request a new one.', 'error');
+          return;
+        }
+        resetForm.reset();
+        resetToken = '';
+        portalShowMsg(resetMsg, 'Password updated. Redirecting you to sign in…', 'success');
+        setTimeout(function() { window.location.href = 'login.html'; }, 2000);
+      }).catch(function() {
+        portalBusy(resetForm, false);
+        portalShowMsg(resetMsg, 'The booking portal service is not reachable right now. Please try again shortly.', 'error');
+      });
+    });
+  }
+
+  // ─── 12. Bookings Dashboard ────────────────────────────────
   var dashContent = document.getElementById('dash-content');
 
   if (dashContent) {
@@ -1218,7 +1317,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookings();
   }
 
-  // ─── 11. Sample Booking Generator (layout preview only) ────
+  // ─── 13. Sample Booking Generator (layout preview only) ────
   // Produces clearly-labelled placeholder records. Never presented as real
   // booking data — the dashboard always shows a warning banner alongside it.
   function portalDemoBookings() {
