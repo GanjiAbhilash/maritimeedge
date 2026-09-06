@@ -1330,7 +1330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookings();
   }
 
-  // ─── 13. Sample Job Generator (layout preview only) ────────
+  // ─── 11. Sample Booking Generator (layout preview only) ────
   // Produces clearly-labelled placeholder records. Never presented as real
   // job data — the dashboard always shows a warning banner alongside it.
   function portalDemoBookings() {
