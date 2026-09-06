@@ -1088,6 +1088,17 @@ document.addEventListener('DOMContentLoaded', () => {
         viewBtn.textContent = 'Details';
         viewBtn.addEventListener('click', function() { openBooking(b); });
         actionTd.appendChild(viewBtn);
+
+        if (isAdmin && !session.demo) {
+          var editBtn = document.createElement('button');
+          editBtn.type = 'button';
+          editBtn.className = 'booking-table__btn';
+          editBtn.style.marginLeft = '6px';
+          editBtn.textContent = 'Update';
+          editBtn.addEventListener('click', function() { openJobForm('edit', b); });
+          actionTd.appendChild(editBtn);
+        }
+
         tr.appendChild(actionTd);
 
         dashRows.appendChild(tr);
@@ -1241,12 +1252,23 @@ document.addEventListener('DOMContentLoaded', () => {
           seen[b.customerEmail] = b.customerCompany || b.customerEmail;
         }
       });
+
+      // Rebuilt on every load, so keep the current choice across refreshes.
+      var previous = dashCustomer.value;
+      dashCustomer.textContent = '';
+      var all = document.createElement('option');
+      all.value = 'all';
+      all.textContent = 'All customers';
+      dashCustomer.appendChild(all);
+
       Object.keys(seen).sort().forEach(function(email) {
         var opt = document.createElement('option');
         opt.value = email;
         opt.textContent = seen[email];
         dashCustomer.appendChild(opt);
       });
+
+      dashCustomer.value = seen[previous] ? previous : 'all';
     }
 
     function showNotice(text, kind) {
@@ -1298,11 +1320,232 @@ document.addEventListener('DOMContentLoaded', () => {
           showNotice('No jobs are linked to this account yet. Once our team creates a job against one of your enquiries it will appear here automatically.', 'info');
         }
         revealDashboard();
+        if (isAdmin) loadOpsQueue();
       }).catch(function() {
         dashGuardMsg.textContent = 'The booking service is not reachable right now. Please refresh in a moment.';
         dashGuardLink.style.display = '';
       });
     }
+
+    // ── Admin ops: create a job from an RFQ, update an existing job ──
+    var opsPanel = document.getElementById('ops-panel');
+    var opsList = document.getElementById('ops-list');
+    var jobModal = document.getElementById('job-form-modal');
+    var jobForm = document.getElementById('job-form');
+    var jobMsg = document.getElementById('jf-msg');
+    var jobStatuses = Object.keys(PORTAL_STATUS).map(function(k) { return PORTAL_STATUS[k]; });
+    var jobFormMode = 'create';
+    var jobFormTarget = null;
+
+    function loadOpsQueue() {
+      if (!opsPanel || session.demo) return;
+      opsPanel.hidden = false;
+      opsList.textContent = 'Loading queue…';
+
+      portalApi({ type: 'admin-jobs-queue', token: session.token }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          opsList.textContent = (res && res.message) || 'Could not load the queue.';
+          return;
+        }
+        if (res.statuses && res.statuses.length) jobStatuses = res.statuses;
+        renderOpsQueue(res.awaiting || []);
+      }).catch(function() {
+        opsList.textContent = 'Queue unavailable right now.';
+      });
+    }
+
+    function renderOpsQueue(rows) {
+      opsList.textContent = '';
+
+      if (!rows.length) {
+        var empty = document.createElement('p');
+        empty.className = 'ops__empty';
+        empty.textContent = 'Every RFQ already has a job.';
+        opsList.appendChild(empty);
+        return;
+      }
+
+      rows.forEach(function(r) {
+        var card = document.createElement('div');
+        card.className = 'ops-card';
+
+        var id = document.createElement('div');
+        id.className = 'ops-card__id';
+        id.textContent = r.rfqId + ' · ' + r.rfqStatus;
+        card.appendChild(id);
+
+        var meta = document.createElement('div');
+        meta.className = 'ops-card__meta';
+        [
+          r.company || r.email,
+          r.origin + ' → ' + r.destination,
+          (r.commodity || '') + ' · ' + (r.cargoWeight || '')
+        ].forEach(function(line, i) {
+          if (i) meta.appendChild(document.createElement('br'));
+          meta.appendChild(document.createTextNode(line));
+        });
+        card.appendChild(meta);
+
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ops-card__btn';
+        btn.textContent = 'Create Job';
+        btn.addEventListener('click', function() { openJobForm('create', r); });
+        card.appendChild(btn);
+
+        opsList.appendChild(card);
+      });
+    }
+
+    function setJobField(id, value) {
+      document.getElementById(id).value = value || '';
+    }
+
+    function fillStatusOptions(selected) {
+      var sel = document.getElementById('jf-status');
+      sel.textContent = '';
+      jobStatuses.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.textContent = s;
+        if (s === selected) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    }
+
+    function openJobForm(mode, target) {
+      jobFormMode = mode;
+      jobFormTarget = target;
+      portalHideMsg(jobMsg);
+
+      ['jf-transport', 'jf-vehicle-type', 'jf-vehicle-no', 'jf-eir', 'jf-pickup', 'jf-delivery',
+       'jf-driver-name', 'jf-driver-phone', 'jf-driver-dl', 'jf-driver-aadhaar', 'jf-driver-pass',
+       'jf-pass-valid', 'jf-charges', 'jf-remarks'].forEach(function(id) { setJobField(id, ''); });
+
+      document.getElementById('jf-charges-hint').textContent = '';
+      var prefill = document.getElementById('job-form-prefill');
+      prefill.textContent = '';
+
+      if (mode === 'create') {
+        document.getElementById('job-form-title').textContent = 'Create Job from ' + target.rfqId;
+        document.getElementById('job-form-subtitle').textContent = 'Visible to ' + target.email;
+        document.getElementById('jf-submit').textContent = 'Create Job';
+        prefill.textContent = 'Loading enquiry…';
+        fillStatusOptions('Booked');
+
+        portalApi({ type: 'admin-rfq-prefill', token: session.token, rfqId: target.rfqId }).then(function(res) {
+          if (!res || res.status !== 'success') {
+            prefill.textContent = (res && res.message) || 'Could not load the RFQ.';
+            return;
+          }
+          var d = res.rfq;
+          prefill.textContent = d.company + ' (' + d.contactName + ') · ' + d.email +
+            ' — ' + d.origin + ' → ' + d.destination +
+            ' · ' + d.commodity + ' · ' + d.cargoWeight +
+            ' · ' + d.shipmentType + ' · ' + d.containerCount + ' ctr · ' + d.incoterm;
+
+          if (res.statuses && res.statuses.length) {
+            jobStatuses = res.statuses;
+            fillStatusOptions('Booked');
+          }
+          if (d.suggestedCharges) {
+            setJobField('jf-charges', d.suggestedCharges);
+            document.getElementById('jf-charges-hint').textContent = 'Pre-filled from the lowest quote on this RFQ.';
+          }
+          if (d.alreadyHasJob) {
+            portalShowMsg(jobMsg, 'A job already exists for this RFQ.', 'error');
+          }
+        }).catch(function() {
+          prefill.textContent = 'Could not load the RFQ.';
+        });
+      } else {
+        document.getElementById('job-form-title').textContent = 'Update ' + target.jobId;
+        document.getElementById('job-form-subtitle').textContent = target.rfqId + ' · ' + target.customerEmail;
+        document.getElementById('jf-submit').textContent = 'Save Changes';
+        prefill.textContent = target.portOfLoading + ' → ' + target.portOfDischarge +
+          ' · ' + target.cargoType + ' · ' + target.cargoWeight;
+
+        fillStatusOptions(PORTAL_STATUS[target.status]);
+        var dash = '—';
+        setJobField('jf-transport', target.transportCompany === dash ? '' : target.transportCompany);
+        setJobField('jf-vehicle-type', target.vehicleType === dash ? '' : target.vehicleType);
+        setJobField('jf-vehicle-no', target.vehicleNo === dash ? '' : target.vehicleNo);
+        setJobField('jf-eir', target.eirNumber === dash ? '' : target.eirNumber);
+        setJobField('jf-driver-name', target.driverName === dash ? '' : target.driverName);
+        setJobField('jf-driver-phone', target.driverPhone === dash ? '' : target.driverPhone);
+        setJobField('jf-driver-dl', target.driverLicence === dash ? '' : target.driverLicence);
+        setJobField('jf-driver-pass', target.driverPassNo === dash ? '' : target.driverPassNo);
+        setJobField('jf-charges', target.transportCharges === dash ? '' : target.transportCharges);
+        setJobField('jf-remarks', target.remarks);
+        document.getElementById('jf-payment').value =
+          ['Pending', 'Partly Paid', 'Paid'].indexOf(target.paymentStatus) > -1 ? target.paymentStatus : 'Pending';
+        document.getElementById('jf-charges-hint').textContent = 'Blank fields are left unchanged.';
+      }
+
+      jobModal.hidden = false;
+      jobModal.classList.add('modal--open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('job-form-close').focus();
+    }
+
+    function closeJobForm() {
+      jobModal.classList.remove('modal--open');
+      jobModal.hidden = true;
+      document.body.style.overflow = '';
+      setJobField('jf-driver-aadhaar', '');
+      jobFormTarget = null;
+    }
+
+    document.getElementById('job-form-close').addEventListener('click', closeJobForm);
+    jobModal.addEventListener('click', function(e) { if (e.target === jobModal) closeJobForm(); });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && jobModal.classList.contains('modal--open')) closeJobForm();
+    });
+    document.getElementById('ops-refresh').addEventListener('click', loadOpsQueue);
+
+    jobForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (!jobFormTarget) return;
+      portalHideMsg(jobMsg);
+      portalBusy(jobForm, true, 'Saving…');
+
+      var fields = {
+        transportCompany: document.getElementById('jf-transport').value.trim(),
+        vehicleType: document.getElementById('jf-vehicle-type').value.trim(),
+        vehicleNo: document.getElementById('jf-vehicle-no').value.trim(),
+        eirNumber: document.getElementById('jf-eir').value.trim(),
+        pickupDate: document.getElementById('jf-pickup').value,
+        deliveryDate: document.getElementById('jf-delivery').value,
+        driverName: document.getElementById('jf-driver-name').value.trim(),
+        driverPhone: document.getElementById('jf-driver-phone').value.trim(),
+        driverLicence: document.getElementById('jf-driver-dl').value.trim(),
+        driverAadhaar: document.getElementById('jf-driver-aadhaar').value.trim(),
+        driverPassNo: document.getElementById('jf-driver-pass').value.trim(),
+        passValidTill: document.getElementById('jf-pass-valid').value,
+        status: document.getElementById('jf-status').value,
+        transportCharges: document.getElementById('jf-charges').value.trim(),
+        paymentStatus: document.getElementById('jf-payment').value,
+        remarks: document.getElementById('jf-remarks').value.trim()
+      };
+
+      var payload = jobFormMode === 'create'
+        ? { type: 'admin-create-job', token: session.token, rfqId: jobFormTarget.rfqId, fields: fields }
+        : { type: 'admin-update-job', token: session.token, jobId: jobFormTarget.jobId, fields: fields };
+
+      portalApi(payload).then(function(res) {
+        portalBusy(jobForm, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(jobMsg, (res && res.message) || 'Could not save the job.', 'error');
+          return;
+        }
+        setJobField('jf-driver-aadhaar', '');
+        closeJobForm();
+        currentPage = 1;
+        loadBookings();
+      }).catch(function() {
+        portalBusy(jobForm, false);
+        portalShowMsg(jobMsg, 'The service is not reachable right now. Please try again.', 'error');
+      });
+    });
 
     dashSearch.addEventListener('input', function() {
       currentPage = 1;

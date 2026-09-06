@@ -104,6 +104,19 @@
   .checkbox-label:hover { background: #f8fafc; }
   .checkbox-label input { margin-top: 3px; }
   .checkbox-label small { display: block; color: #64748b; font-size: 0.8rem; }
+
+  /* ─── Job Form ─────────────────────────────────────────── */
+  .section-title { font-size: 1rem; font-weight: 700; color: #0A2463; margin: 24px 0 12px; }
+  .section-title:first-child { margin-top: 0; }
+  .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .field label { display: block; font-size: 0.78rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+  .field .input { padding: 10px 12px; font-size: 0.9rem; }
+  .field small { display: block; color: #94a3b8; font-size: 0.75rem; margin-top: 4px; }
+  .prefill-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px; }
+  .prefill-box .card-row { font-size: 0.85rem; }
+  .form-error { color: #ef4444; font-size: 0.85rem; margin-top: 12px; }
+  .form-note { background: #FEF3C7; color: #92400e; border-radius: 8px; padding: 10px 12px; font-size: 0.8rem; margin-top: 14px; }
+  .status-job { background: #DBEAFE; color: #1e40af; }
   </style>
 </head>
 <body>
@@ -130,6 +143,7 @@
           <button class="nav-tab active" data-tab="overview" onclick="switchTab('overview')">Overview</button>
           <button class="nav-tab" data-tab="rfqs" onclick="switchTab('rfqs')">RFQs</button>
           <button class="nav-tab" data-tab="quotes" onclick="switchTab('quotes')">Quotes</button>
+          <button class="nav-tab" data-tab="jobs" onclick="switchTab('jobs')">Jobs</button>
           <button class="nav-tab" data-tab="payments" onclick="switchTab('payments')">Payments</button>
           <button class="nav-tab" data-tab="deals" onclick="switchTab('deals')">Deals</button>
         </div>
@@ -166,6 +180,17 @@
         <div id="quotes-list" class="card-list"></div>
       </div>
 
+      <!-- Jobs Tab -->
+      <div id="tab-jobs" class="tab-content">
+        <h2 class="page-title">Jobs</h2>
+
+        <div class="section-title">RFQs awaiting a job</div>
+        <div id="awaiting-list" class="card-list">Loading...</div>
+
+        <div class="section-title">Existing jobs</div>
+        <div id="jobs-list" class="card-list">Loading...</div>
+      </div>
+
       <!-- Payments Tab -->
       <div id="tab-payments" class="tab-content">
         <h2 class="page-title">Payment Tracking</h2>
@@ -193,6 +218,56 @@
         <div class="modal-footer">
           <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
           <button class="btn btn-primary" onclick="confirmApproval()" id="approve-confirm-btn">Approve & Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Job Modal -->
+    <div id="job-modal" class="modal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Create Job from <span id="job-modal-rfq"></span></h3>
+          <button class="modal-close" onclick="closeJobModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="prefill-box" id="job-prefill"></div>
+
+          <div class="section-title">Transport</div>
+          <div class="form-grid">
+            <div class="field"><label for="job-transport-company">Transport Company</label><input class="input" id="job-transport-company" placeholder="e.g., TRC Logistics"></div>
+            <div class="field"><label for="job-vehicle-type">Type of Vehicle</label><input class="input" id="job-vehicle-type" placeholder="e.g., 20ft Trailer"></div>
+            <div class="field"><label for="job-vehicle-no">Vehicle No.</label><input class="input" id="job-vehicle-no" placeholder="e.g., TN 01 AB 4567"></div>
+            <div class="field"><label for="job-eir">EIR Number</label><input class="input" id="job-eir" placeholder="Leave blank until issued"></div>
+            <div class="field"><label for="job-pickup">Pickup Date</label><input class="input" id="job-pickup" type="date"></div>
+            <div class="field"><label for="job-delivery">Delivery Date</label><input class="input" id="job-delivery" type="date"></div>
+          </div>
+
+          <div class="section-title">Driver</div>
+          <div class="form-grid">
+            <div class="field"><label for="job-driver-name">Driver Name</label><input class="input" id="job-driver-name"></div>
+            <div class="field"><label for="job-driver-phone">Driver Phone</label><input class="input" id="job-driver-phone" placeholder="+91 98765 43210"></div>
+            <div class="field"><label for="job-driver-dl">Driving Licence No.</label><input class="input" id="job-driver-dl"></div>
+            <div class="field"><label for="job-driver-aadhaar">Aadhaar</label><input class="input" id="job-driver-aadhaar" placeholder="Only last 4 digits are stored"><small>Type the full number if you like &mdash; only the last 4 digits are saved.</small></div>
+            <div class="field"><label for="job-driver-pass">Driver Pass No.</label><input class="input" id="job-driver-pass"></div>
+            <div class="field"><label for="job-pass-valid">Pass Valid Till</label><input class="input" id="job-pass-valid" type="date"></div>
+          </div>
+
+          <div class="section-title">Status &amp; charges</div>
+          <div class="form-grid">
+            <div class="field"><label for="job-status">Shipment Status</label><select class="input" id="job-status"></select></div>
+            <div class="field"><label for="job-charges">Transport Charges (INR)</label><input class="input" id="job-charges"><small id="job-charges-hint"></small></div>
+            <div class="field"><label for="job-payment">Payment Status</label><select class="input" id="job-payment"><option>Pending</option><option>Partly Paid</option><option>Paid</option></select></div>
+          </div>
+
+          <div class="section-title">Remarks</div>
+          <input class="input" id="job-remarks" placeholder="Anything the customer should see">
+
+          <div class="form-note">The customer account is taken from the RFQ, not from this form &mdash; the job will be visible to <strong id="job-modal-email"></strong>.</div>
+          <p id="job-error" class="form-error" style="display:none;"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeJobModal()">Cancel</button>
+          <button class="btn btn-primary" onclick="submitJob()" id="job-submit-btn">Create Job</button>
         </div>
       </div>
     </div>
@@ -255,6 +330,7 @@
       if (tab === 'overview') loadStats();
       if (tab === 'rfqs') loadRFQs();
       if (tab === 'quotes') loadQuoteRFQDropdown();
+      if (tab === 'jobs') loadJobsTab();
       if (tab === 'payments') loadPayments();
       if (tab === 'deals') loadDeals();
     }
@@ -540,6 +616,214 @@
       }).withFailureHandler(function(err) {
         document.getElementById('deals-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error loading deals: ' + err.message + '</p>';
       }).getDealsList();
+    }
+
+    // ─── Job Management ─────────────────────────────────────
+    var currentJobRFQ = null;
+
+    function esc(v) {
+      return String(v === null || v === undefined ? '' : v)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function loadJobsTab() {
+      loadAwaitingRFQs();
+      loadJobs();
+    }
+
+    function loadAwaitingRFQs() {
+      document.getElementById('awaiting-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(rows) {
+        if (!rows || rows.error) {
+          document.getElementById('awaiting-list').innerHTML = '<p class="empty" style="color:#ef4444;">' + esc(rows && rows.error ? rows.error : 'Could not load RFQs') + '</p>';
+          return;
+        }
+        if (!rows.length) {
+          document.getElementById('awaiting-list').innerHTML = '<p class="empty">Every RFQ already has a job.</p>';
+          return;
+        }
+        document.getElementById('awaiting-list').innerHTML = rows.map(function(r) {
+          return '<div class="card">' +
+            '<div class="card-header"><span class="card-id">' + esc(r.rfqId) + '</span>' +
+            '<span class="status status-' + esc(String(r.rfqStatus).toLowerCase().replace(/\s+/g, '-')) + '">' + esc(r.rfqStatus) + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>Customer:</span><strong>' + esc(r.company || r.email) + '</strong></div>' +
+            '<div class="card-row"><span>Account email:</span><strong>' + esc(r.email) + '</strong></div>' +
+            '<div class="card-row"><span>Route:</span><strong>' + esc(r.origin) + ' &rarr; ' + esc(r.destination) + '</strong></div>' +
+            '<div class="card-row"><span>Cargo:</span><strong>' + esc(r.commodity) + ' &middot; ' + esc(r.cargoWeight) + '</strong></div>' +
+            '</div>' +
+            '<div class="card-actions"><button class="btn btn-sm btn-green" onclick="openJobModal(\'' + esc(r.rfqId) + '\')">Create Job</button></div>' +
+            '</div>';
+        }).join('');
+      }).withFailureHandler(function(err) {
+        document.getElementById('awaiting-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error: ' + esc(err.message) + '</p>';
+      }).getRFQsAwaitingJob();
+    }
+
+    function loadJobs() {
+      document.getElementById('jobs-list').innerHTML = 'Loading...';
+      google.script.run.withSuccessHandler(function(rows) {
+        if (!rows || rows.error) {
+          document.getElementById('jobs-list').innerHTML = '<p class="empty" style="color:#ef4444;">' + esc(rows && rows.error ? rows.error : 'Could not load jobs') + '</p>';
+          return;
+        }
+        if (!rows.length) {
+          document.getElementById('jobs-list').innerHTML = '<p class="empty">No jobs created yet.</p>';
+          return;
+        }
+        document.getElementById('jobs-list').innerHTML = rows.map(function(j) {
+          var opts = JOB_STATUS_LIST.map(function(s) {
+            return '<option' + (s === j.status ? ' selected' : '') + '>' + esc(s) + '</option>';
+          }).join('');
+          return '<div class="card">' +
+            '<div class="card-header"><span class="card-id">' + esc(j.jobId) + ' &middot; ' + esc(j.rfqId) + '</span>' +
+            '<span class="status status-job">' + esc(j.status) + '</span></div>' +
+            '<div class="card-body">' +
+            '<div class="card-row"><span>Customer:</span><strong>' + esc(j.customerCompany || j.customerEmail) + '</strong></div>' +
+            '<div class="card-row"><span>Route:</span><strong>' + esc(j.portOfLoading) + ' &rarr; ' + esc(j.portOfDischarge) + '</strong></div>' +
+            '<div class="card-row"><span>Transporter:</span><strong>' + esc(j.transportCompany) + '</strong></div>' +
+            '<div class="card-row"><span>Vehicle:</span><strong>' + esc(j.vehicleType) + ' &middot; ' + esc(j.vehicleNo) + '</strong></div>' +
+            '<div class="card-row"><span>Driver:</span><strong>' + esc(j.driverName) + ' &middot; ' + esc(j.driverPhone) + '</strong></div>' +
+            '<div class="card-row"><span>EIR:</span><strong>' + esc(j.eirNumber || 'Not issued') + '</strong></div>' +
+            '<div class="card-row"><span>Charges:</span><strong class="price">' + esc(j.transportCharges) + '</strong></div>' +
+            '<div class="card-row"><span>Payment:</span><strong>' + esc(j.paymentStatus) + '</strong></div>' +
+            '</div>' +
+            '<div class="card-actions">' +
+            '<select class="input" id="st-' + esc(j.jobId) + '" style="max-width:220px;padding:6px 10px;font-size:0.82rem;">' + opts + '</select>' +
+            '<button class="btn btn-sm btn-primary" onclick="saveJobStatus(\'' + esc(j.jobId) + '\')">Update Status</button>' +
+            '<button class="btn btn-sm btn-outline" onclick="setEir(\'' + esc(j.jobId) + '\')">Set EIR</button>' +
+            '</div></div>';
+        }).join('');
+      }).withFailureHandler(function(err) {
+        document.getElementById('jobs-list').innerHTML = '<p class="empty" style="color:#ef4444;">Error: ' + esc(err.message) + '</p>';
+      }).getJobsList();
+    }
+
+    var JOB_STATUS_LIST = ['Booked', 'Vehicle Assigned', 'Reported for Loading', 'Loaded (EIR Issued)', 'In Transit', 'Gate-In ICD', 'Delivered', 'On Hold'];
+
+    function openJobModal(rfqId) {
+      currentJobRFQ = rfqId;
+      document.getElementById('job-modal-rfq').textContent = rfqId;
+      document.getElementById('job-error').style.display = 'none';
+      document.getElementById('job-prefill').innerHTML = 'Loading enquiry...';
+      document.getElementById('job-modal').style.display = 'flex';
+
+      ['job-transport-company', 'job-vehicle-type', 'job-vehicle-no', 'job-eir', 'job-pickup',
+       'job-delivery', 'job-driver-name', 'job-driver-phone', 'job-driver-dl', 'job-driver-aadhaar',
+       'job-driver-pass', 'job-pass-valid', 'job-charges', 'job-remarks'].forEach(function(id) {
+        document.getElementById(id).value = '';
+      });
+
+      google.script.run.withSuccessHandler(function(d) {
+        if (!d || d.error) {
+          document.getElementById('job-prefill').innerHTML = '<span style="color:#ef4444;">' + esc(d && d.error ? d.error : 'Could not load RFQ') + '</span>';
+          return;
+        }
+        document.getElementById('job-modal-email').textContent = d.email;
+        document.getElementById('job-prefill').innerHTML =
+          '<div class="card-row"><span>Customer:</span><strong>' + esc(d.company) + ' (' + esc(d.contactName) + ')</strong></div>' +
+          '<div class="card-row"><span>Account email:</span><strong>' + esc(d.email) + '</strong></div>' +
+          '<div class="card-row"><span>Port of Loading:</span><strong>' + esc(d.origin) + '</strong></div>' +
+          '<div class="card-row"><span>Port of Discharge:</span><strong>' + esc(d.destination) + '</strong></div>' +
+          '<div class="card-row"><span>Cargo Type:</span><strong>' + esc(d.commodity) + '</strong></div>' +
+          '<div class="card-row"><span>Cargo Weight:</span><strong>' + esc(d.cargoWeight) + '</strong></div>' +
+          '<div class="card-row"><span>Shipment Type:</span><strong>' + esc(d.shipmentType) + '</strong></div>' +
+          '<div class="card-row"><span>Containers / Incoterm:</span><strong>' + esc(d.containerCount) + ' &middot; ' + esc(d.incoterm) + '</strong></div>';
+
+        JOB_STATUS_LIST = d.statuses && d.statuses.length ? d.statuses : JOB_STATUS_LIST;
+        document.getElementById('job-status').innerHTML = JOB_STATUS_LIST.map(function(s) {
+          return '<option>' + esc(s) + '</option>';
+        }).join('');
+
+        if (d.suggestedCharges) {
+          document.getElementById('job-charges').value = d.suggestedCharges;
+          document.getElementById('job-charges-hint').textContent = 'Pre-filled from the lowest quote on this RFQ.';
+        } else {
+          document.getElementById('job-charges-hint').textContent = '';
+        }
+
+        if (d.alreadyHasJob) {
+          document.getElementById('job-error').textContent = 'A job already exists for this RFQ.';
+          document.getElementById('job-error').style.display = 'block';
+        }
+      }).withFailureHandler(function(err) {
+        document.getElementById('job-prefill').innerHTML = '<span style="color:#ef4444;">Error: ' + esc(err.message) + '</span>';
+      }).getRFQForJob(rfqId);
+    }
+
+    function closeJobModal() {
+      document.getElementById('job-modal').style.display = 'none';
+      currentJobRFQ = null;
+    }
+
+    function submitJob() {
+      if (!currentJobRFQ) return;
+      var btn = document.getElementById('job-submit-btn');
+      var errEl = document.getElementById('job-error');
+      errEl.style.display = 'none';
+      btn.textContent = 'Creating...';
+      btn.disabled = true;
+
+      var fields = {
+        transportCompany: document.getElementById('job-transport-company').value,
+        vehicleType: document.getElementById('job-vehicle-type').value,
+        vehicleNo: document.getElementById('job-vehicle-no').value,
+        eirNumber: document.getElementById('job-eir').value,
+        pickupDate: document.getElementById('job-pickup').value,
+        deliveryDate: document.getElementById('job-delivery').value,
+        driverName: document.getElementById('job-driver-name').value,
+        driverPhone: document.getElementById('job-driver-phone').value,
+        driverLicence: document.getElementById('job-driver-dl').value,
+        driverAadhaar: document.getElementById('job-driver-aadhaar').value,
+        driverPassNo: document.getElementById('job-driver-pass').value,
+        passValidTill: document.getElementById('job-pass-valid').value,
+        status: document.getElementById('job-status').value,
+        transportCharges: document.getElementById('job-charges').value,
+        paymentStatus: document.getElementById('job-payment').value,
+        remarks: document.getElementById('job-remarks').value
+      };
+
+      google.script.run.withSuccessHandler(function(res) {
+        btn.textContent = 'Create Job';
+        btn.disabled = false;
+        if (!res || res.error) {
+          errEl.textContent = (res && res.error) || 'Could not create the job.';
+          errEl.style.display = 'block';
+          return;
+        }
+        // Aadhaar is only ever sent, never held in the form afterwards.
+        document.getElementById('job-driver-aadhaar').value = '';
+        closeJobModal();
+        alert('Job ' + res.jobId + ' created for ' + res.customerEmail);
+        loadJobsTab();
+      }).withFailureHandler(function(err) {
+        btn.textContent = 'Create Job';
+        btn.disabled = false;
+        errEl.textContent = 'Error: ' + err.message;
+        errEl.style.display = 'block';
+      }).createJobFromRFQ(currentJobRFQ, fields);
+    }
+
+    function saveJobStatus(jobId) {
+      var value = document.getElementById('st-' + jobId).value;
+      google.script.run.withSuccessHandler(function(res) {
+        if (!res || res.error) { alert((res && res.error) || 'Update failed'); return; }
+        loadJobs();
+      }).withFailureHandler(function(err) {
+        alert('Error: ' + err.message);
+      }).updateJob(jobId, { status: value });
+    }
+
+    function setEir(jobId) {
+      var eir = prompt('EIR number for ' + jobId + ':');
+      if (eir === null) return;
+      google.script.run.withSuccessHandler(function(res) {
+        if (!res || res.error) { alert((res && res.error) || 'Update failed'); return; }
+        loadJobs();
+      }).withFailureHandler(function(err) {
+        alert('Error: ' + err.message);
+      }).updateJob(jobId, { eirNumber: eir });
     }
 
     // ─── Init: Check if already authenticated ───────────────

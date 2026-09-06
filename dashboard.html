@@ -96,6 +96,17 @@
           </div>
         </div>
 
+        <section class="ops" id="ops-panel" hidden>
+          <div class="ops__head">
+            <div>
+              <h2 class="ops__title">RFQs awaiting a job</h2>
+              <p class="ops__note">Operations only. Payments, partner selection and customer-detail release stay in the Apps Script panel.</p>
+            </div>
+            <button type="button" class="btn btn--outline btn--sm" id="ops-refresh">Refresh queue</button>
+          </div>
+          <div id="ops-list" class="ops__list"></div>
+        </section>
+
         <div class="dash__panel">
           <div class="dash__toolbar">
             <label class="form__label" for="dash-search" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Search jobs</label>
@@ -160,6 +171,118 @@
         <button type="button" class="modal__close" id="booking-modal-close" aria-label="Close job details">&#10005;</button>
       </div>
       <div class="modal__body" id="booking-modal-body"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="job-form-modal" role="dialog" aria-modal="true" aria-labelledby="job-form-title" hidden>
+    <div class="modal__card">
+      <div class="modal__head">
+        <div>
+          <div class="modal__title" id="job-form-title">Create Job</div>
+          <div class="modal__subtitle" id="job-form-subtitle"></div>
+        </div>
+        <button type="button" class="modal__close" id="job-form-close" aria-label="Close job form">&#10005;</button>
+      </div>
+      <div class="modal__body">
+        <div class="notice notice--info" id="job-form-prefill"></div>
+
+        <form class="form" id="job-form" novalidate>
+          <div class="detail-block__title">Transport</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-transport">Transport Company</label>
+              <input type="text" class="form__input" id="jf-transport" placeholder="e.g., TRC Logistics">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-vehicle-type">Type of Vehicle</label>
+              <input type="text" class="form__input" id="jf-vehicle-type" placeholder="e.g., 20ft Trailer">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-vehicle-no">Vehicle No.</label>
+              <input type="text" class="form__input" id="jf-vehicle-no" placeholder="e.g., TN 01 AB 4567">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-eir">EIR Number</label>
+              <input type="text" class="form__input" id="jf-eir" placeholder="Leave blank until issued">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-pickup">Pickup Date</label>
+              <input type="date" class="form__input" id="jf-pickup">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-delivery">Delivery Date</label>
+              <input type="date" class="form__input" id="jf-delivery">
+            </div>
+          </div>
+
+          <div class="detail-block__title" style="margin-top:18px;">Driver</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-driver-name">Driver Name</label>
+              <input type="text" class="form__input" id="jf-driver-name">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-driver-phone">Driver Phone</label>
+              <input type="tel" class="form__input" id="jf-driver-phone" placeholder="+91 98765 43210">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-driver-dl">Driving Licence No.</label>
+              <input type="text" class="form__input" id="jf-driver-dl">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-driver-aadhaar">Aadhaar</label>
+              <input type="text" class="form__input" id="jf-driver-aadhaar" autocomplete="off" placeholder="Only last 4 digits are stored">
+              <p class="auth__hint">Type the full number if easier — only the last 4 digits are saved.</p>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-driver-pass">Driver Pass No.</label>
+              <input type="text" class="form__input" id="jf-driver-pass">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-pass-valid">Pass Valid Till</label>
+              <input type="date" class="form__input" id="jf-pass-valid">
+            </div>
+          </div>
+
+          <div class="detail-block__title" style="margin-top:18px;">Status &amp; charges</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-status">Shipment Status</label>
+              <select class="form__input" id="jf-status"></select>
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-charges">Transport Charges (INR)</label>
+              <input type="text" class="form__input" id="jf-charges">
+              <p class="auth__hint" id="jf-charges-hint"></p>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="jf-payment">Payment Status</label>
+              <select class="form__input" id="jf-payment">
+                <option>Pending</option>
+                <option>Partly Paid</option>
+                <option>Paid</option>
+              </select>
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="jf-remarks">Remarks</label>
+              <input type="text" class="form__input" id="jf-remarks" placeholder="Anything the customer should see">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;margin-top:8px;" id="jf-submit">Create Job</button>
+          <p class="auth__msg" id="jf-msg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
     </div>
   </div>
 

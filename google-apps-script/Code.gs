@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-06-jobs-from-rfq';
+var SCRIPT_VERSION = '2026-09-06-web-job-ops';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -83,6 +83,14 @@ var JOB_STATUSES = [
 var PORTAL_ADMIN_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
 
 var PORTAL_SESSION_HOURS = 12;
+
+// Admin sessions are short because an admin token can write job data from the
+// public site; customer tokens are read-only so they can last a working day.
+var PORTAL_ADMIN_SESSION_HOURS = 2;
+
+// doPost is a public endpoint, so both login routes are throttled per email.
+var PORTAL_MAX_LOGIN_ATTEMPTS = 5;
+var PORTAL_LOCKOUT_MINUTES = 15;
 
 // Password reset link lifetime, and the minimum gap between two reset emails
 // to the same address.
@@ -128,6 +136,14 @@ function doPost(e) {
         return handlePasswordResetRequest(data);
       case 'password-reset-confirm':
         return handlePasswordResetConfirm(data);
+      case 'admin-jobs-queue':
+        return handleAdminJobsQueue(data);
+      case 'admin-rfq-prefill':
+        return handleAdminRfqPrefill(data);
+      case 'admin-create-job':
+        return handleAdminCreateJob(data);
+      case 'admin-update-job':
+        return handleAdminUpdateJob(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -420,6 +436,42 @@ function portalIsValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(email || ''));
 }
 
+// ── Login throttling (doPost is public, so both login routes are limited) ──
+
+function portalAttemptKey(email) {
+  var hash = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    'attempts|' + String(email || '').toLowerCase(),
+    Utilities.Charset.UTF_8
+  ).map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('');
+  return 'login_fail_' + hash.substring(0, 24);
+}
+
+function portalIsLockedOut(email) {
+  var raw = CacheService.getScriptCache().get(portalAttemptKey(email));
+  return !!raw && parseInt(raw, 10) >= PORTAL_MAX_LOGIN_ATTEMPTS;
+}
+
+// Each failure also extends the window, so sustained guessing stays locked.
+function portalRecordFailedLogin(email) {
+  var cache = CacheService.getScriptCache();
+  var key = portalAttemptKey(email);
+  var count = parseInt(cache.get(key) || '0', 10) + 1;
+  cache.put(key, String(count), PORTAL_LOCKOUT_MINUTES * 60);
+  return count;
+}
+
+function portalClearFailedLogins(email) {
+  CacheService.getScriptCache().remove(portalAttemptKey(email));
+}
+
+function portalLockoutResponse() {
+  return jsonResponse({
+    status: 'error',
+    message: 'Too many failed sign-in attempts. Please wait ' + PORTAL_LOCKOUT_MINUTES + ' minutes and try again.'
+  });
+}
+
 // Reset links are single-use random tokens; only their hash is stored.
 function portalResetTokenHash(token) {
   return Utilities.computeDigest(
@@ -533,13 +585,18 @@ function handleCustomerLogin(data) {
   var sheet = getSheet(TABS.CUSTOMERS);
   var row = sheet ? findRowByColumn(sheet, 4, email) : null;
 
+  if (portalIsLockedOut(email)) return portalLockoutResponse();
+
   // Same generic message for unknown email and wrong password.
   if (!row || !portalSafeEquals(portalHash(password, row[6]), String(row[5]))) {
+    portalRecordFailedLogin(email);
     return jsonResponse({ status: 'error', message: 'Invalid email or password.' });
   }
   if (String(row[7]).toLowerCase() !== 'active') {
     return jsonResponse({ status: 'error', message: 'This account is not active. Please contact MaritimeEdge support.' });
   }
+
+  portalClearFailedLogins(email);
 
   var rowNum = findRowNumberByColumn(sheet, 4, email);
   if (rowNum > 0) sheet.getRange(rowNum, 10).setValue(new Date().toISOString());
@@ -690,13 +747,18 @@ function handlePortalAdminLogin(data) {
   var password = String(data.password || '');
   var config = getConfig();
 
+  if (portalIsLockedOut(email)) return portalLockoutResponse();
+
   var allowed = PORTAL_ADMIN_EMAILS.some(function(a) { return a.toLowerCase() === email; });
 
   if (!allowed || !config.ADMIN_PASSWORD || !portalSafeEquals(password, config.ADMIN_PASSWORD)) {
+    portalRecordFailedLogin(email);
     return jsonResponse({ status: 'error', message: 'Invalid administrator credentials.' });
   }
 
-  var expiresAt = new Date(Date.now() + PORTAL_SESSION_HOURS * 3600 * 1000).toISOString();
+  portalClearFailedLogins(email);
+
+  var expiresAt = new Date(Date.now() + PORTAL_ADMIN_SESSION_HOURS * 3600 * 1000).toISOString();
 
   return jsonResponse({
     status: 'success',
@@ -909,7 +971,12 @@ function portalBestQuoteForRFQ(rfqId) {
 
 function createJobFromRFQ(rfqId, fields) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalCreateJobCore(rfqId, fields);
+}
 
+// Shared by the Apps Script panel and the website admin route; callers are
+// responsible for authenticating first.
+function portalCreateJobCore(rfqId, fields) {
   rfqId = String(rfqId || '').trim();
   fields = fields || {};
 
@@ -968,7 +1035,10 @@ function createJobFromRFQ(rfqId, fields) {
 
 function updateJob(jobId, fields) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalUpdateJobCore(jobId, fields);
+}
 
+function portalUpdateJobCore(jobId, fields) {
   var sheet = getSheet(TABS.JOBS);
   if (!sheet) return { error: 'Jobs sheet not found' };
 
@@ -1023,6 +1093,118 @@ function getJobsList() {
       lastUpdated: portalDateOnly(r[20])
     };
   });
+}
+
+// ─── 1F. WEBSITE ADMIN JOB OPS (doPost, token-authenticated) ─
+//
+// Deliberately limited to job operations. Payments, partner selection and
+// manufacturer-detail release stay in the Apps Script panel, so a stolen
+// browser token cannot move money or disclose PII.
+
+function portalRequireAdmin(data) {
+  var session = portalVerifyToken(data && data.token);
+  if (!session) return { error: 'Your session has expired. Please sign in again.' };
+  if (session.role !== 'admin') return { error: 'Administrator access required.' };
+  return { session: session };
+}
+
+function handleAdminJobsQueue(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var sheet = getSheet(TABS.RFQ);
+  var awaiting = [];
+
+  if (sheet && sheet.getLastRow() > 1) {
+    var used = portalJobRfqIds();
+    var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+
+    for (var i = 0; i < values.length; i++) {
+      var r = safeRow(values[i]);
+      if (!r[0] || used[String(r[0]).trim().toUpperCase()]) continue;
+      if (String(r[1]) === 'Rejected') continue;
+
+      awaiting.push({
+        rfqId: r[0], rfqStatus: r[1], email: r[4], company: r[6],
+        origin: r[7], destination: r[8], shipmentType: r[9],
+        cargoWeight: r[10], commodity: r[11]
+      });
+    }
+  }
+
+  return jsonResponse({ status: 'success', awaiting: awaiting, statuses: JOB_STATUSES });
+}
+
+function handleAdminRfqPrefill(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet) return jsonResponse({ status: 'error', message: 'RFQ sheet not found' });
+
+  var row = findRowByColumn(sheet, 1, String(data.rfqId || '').trim());
+  if (!row) return jsonResponse({ status: 'error', message: 'RFQ not found' });
+
+  var r = safeRow(row);
+
+  return jsonResponse({
+    status: 'success',
+    rfq: {
+      rfqId: r[0],
+      rfqStatus: r[1],
+      alreadyHasJob: !!portalJobRfqIds()[String(r[0]).trim().toUpperCase()],
+      contactName: r[3],
+      email: String(r[4]).trim().toLowerCase(),
+      company: r[6],
+      origin: r[7],
+      destination: r[8],
+      shipmentType: r[9],
+      cargoWeight: r[10],
+      commodity: r[11],
+      containerCount: r[13],
+      incoterm: r[14],
+      suggestedCharges: portalBestQuoteForRFQ(r[0])
+    },
+    statuses: JOB_STATUSES
+  });
+}
+
+function handleAdminCreateJob(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = portalCreateJobCore(data.rfqId, portalPickJobFields(data.fields, auth.session.email));
+  if (result.error) return jsonResponse({ status: 'error', message: result.error });
+
+  return jsonResponse({ status: 'success', jobId: result.jobId, rfqId: result.rfqId, customerEmail: result.customerEmail });
+}
+
+function handleAdminUpdateJob(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = portalUpdateJobCore(data.jobId, portalPickJobFields(data.fields, auth.session.email));
+  if (result.error) return jsonResponse({ status: 'error', message: result.error });
+
+  return jsonResponse({ status: 'success', jobId: result.jobId });
+}
+
+// Allow-list, so an unexpected key in the request body can never reach a column.
+function portalPickJobFields(fields, actorEmail) {
+  fields = fields || {};
+  var allowed = [
+    'transportCompany', 'vehicleType', 'vehicleNo', 'driverName', 'driverPhone',
+    'driverLicence', 'driverAadhaar', 'driverPassNo', 'passValidTill', 'eirNumber',
+    'status', 'transportCharges', 'paymentStatus', 'pickupDate', 'deliveryDate', 'remarks'
+  ];
+  var out = { createdBy: actorEmail };
+
+  allowed.forEach(function(key) {
+    if (fields[key] !== undefined && fields[key] !== null && String(fields[key]) !== '') {
+      out[key] = fields[key];
+    }
+  });
+  return out;
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────
