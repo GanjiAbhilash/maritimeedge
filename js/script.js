@@ -574,7 +574,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function portalIsColoader(membership) {
-    return String(membership || '').trim().toLowerCase() === 'co-loader';
+    return String(membership || '').toLowerCase().replace(/[^a-z]/g, '') === 'coloader';
+  }
+
+  // Stops dashboard.html and deals.html ping-ponging if the session cannot be
+  // persisted (private mode) and the membership never sticks.
+  function portalRedirectOnce(target) {
+    var key = 'me_portal_redirects';
+    var count = 0;
+    try { count = parseInt(window.sessionStorage.getItem(key) || '0', 10) || 0; } catch (err) {}
+    if (count >= 2) return false;
+    try { window.sessionStorage.setItem(key, String(count + 1)); } catch (err) {}
+    window.location.replace(target);
+    return true;
+  }
+
+  function portalClearRedirects() {
+    try { window.sessionStorage.removeItem('me_portal_redirects'); } catch (err) {}
   }
 
   function portalHomePage(membership) {
@@ -886,8 +902,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Co-loaders have their own board; send them there rather than showing an
     // empty jobs table.
     if (session.role !== 'admin' && portalIsColoader(session.membership)) {
-      window.location.replace('deals.html');
-      return;
+      if (portalRedirectOnce('deals.html')) return;
     }
 
     var isAdmin = session.role === 'admin';
@@ -1296,6 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function revealDashboard() {
+      portalClearRedirects();
       dashGuard.hidden = true;
       dashContent.hidden = false;
     }
@@ -1328,6 +1344,15 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         allBookings = (res.bookings || []).map(normalizeBooking);
+
+        // A session issued before memberships existed carries none, so trust
+        // the server's answer and re-route co-loaders who landed here.
+        if (!isAdmin && portalIsColoader(res.membership)) {
+          session.membership = res.membership;
+          portalWriteSession(session);
+          if (portalRedirectOnce('deals.html')) return;
+        }
+
         renderIdentity();
         renderCustomerFilter();
         renderStats();
@@ -1613,7 +1638,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     if (!portalIsColoader(dealsSession.membership)) {
-      window.location.replace('dashboard.html');
+      if (portalRedirectOnce('dashboard.html')) return;
+      dealsGuardMsg.textContent = 'This area is for Co-loader members only.';
+      dealsGuardLink.style.display = '';
       return;
     }
 
@@ -1837,6 +1864,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         dealsGuard.hidden = true;
         dealsContent.hidden = false;
+        portalClearRedirects();
       }).catch(function() {
         dealsGuardMsg.textContent = 'The deals service is not reachable right now. Please refresh in a moment.';
         dealsGuardLink.style.display = '';

@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-07-coloader-deals';
+var SCRIPT_VERSION = '2026-09-07-coloader-routing-fix';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -783,9 +783,17 @@ function handleCustomerBookings(data) {
     return jsonResponse({ status: 'error', message: 'Your session has expired. Please sign in again.' });
   }
 
+  // Returned so a session created before membership existed can correct itself
+  // and send co-loaders to their own board.
+  var membership = '';
+  if (session.role !== 'admin') {
+    var reg = portalFindRegistration(session.email);
+    membership = reg ? reg.membership : '';
+  }
+
   var sheet = getSheet(TABS.JOBS);
   if (!sheet || sheet.getLastRow() <= 1) {
-    return jsonResponse({ status: 'success', role: session.role, bookings: [] });
+    return jsonResponse({ status: 'success', role: session.role, membership: membership, bookings: [] });
   }
 
   var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, JOB_HEADERS.length).getValues();
@@ -837,7 +845,7 @@ function handleCustomerBookings(data) {
     });
   }
 
-  return jsonResponse({ status: 'success', role: session.role, bookings: jobs });
+  return jsonResponse({ status: 'success', role: session.role, membership: membership, bookings: jobs });
 }
 
 // RFQ ID -> enquiry fields, read once per request instead of per job.
@@ -1222,6 +1230,16 @@ function portalPickJobFields(fields, actorEmail) {
 
 var COLOADER_OPEN_STATUSES = ['Approved', 'Quoted'];
 
+// Membership is typed by hand in the sheet, so 'Co-loader', 'Co loader' and
+// 'Coloader' all have to resolve to the same thing.
+function portalNormalizeMembership(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function portalIsColoaderMembership(value) {
+  return portalNormalizeMembership(value) === 'coloader';
+}
+
 function portalRequireColoader(data) {
   var session = portalVerifyToken(data && data.token);
   if (!session) return { error: 'Your session has expired. Please sign in again.' };
@@ -1232,7 +1250,7 @@ function portalRequireColoader(data) {
   if (!registration || !registration.paid) {
     return { error: 'Your membership is not active. Please contact MaritimeEdge support.' };
   }
-  if (String(registration.membership).trim().toLowerCase() !== 'co-loader') {
+  if (!portalIsColoaderMembership(registration.membership)) {
     return { error: 'This area is for Co-loader members only.' };
   }
   return { session: session, registration: registration };
