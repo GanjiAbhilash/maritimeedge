@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-06-web-job-ops';
+var SCRIPT_VERSION = '2026-09-07-coloader-deals';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -144,6 +144,10 @@ function doPost(e) {
         return handleAdminCreateJob(data);
       case 'admin-update-job':
         return handleAdminUpdateJob(data);
+      case 'coloader-deals':
+        return handleColoaderDeals(data);
+      case 'coloader-quote':
+        return handleColoaderQuote(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -602,6 +606,7 @@ function handleCustomerLogin(data) {
   if (rowNum > 0) sheet.getRange(rowNum, 10).setValue(new Date().toISOString());
 
   var expiresAt = new Date(Date.now() + PORTAL_SESSION_HOURS * 3600 * 1000).toISOString();
+  var registration = portalFindRegistration(email);
 
   return jsonResponse({
     status: 'success',
@@ -610,6 +615,7 @@ function handleCustomerLogin(data) {
     companyName: row[1],
     contactName: row[2],
     role: 'customer',
+    membership: registration ? registration.membership : '',
     expiresAt: expiresAt
   });
 }
@@ -1205,6 +1211,161 @@ function portalPickJobFields(fields, actorEmail) {
     }
   });
   return out;
+}
+
+// ─── 1G. CO-LOADER DEALS BOARD (doPost, token-authenticated) ─
+//
+// Co-loaders quote on open RFQs from the portal. Everything served here is
+// anonymised exactly as the partner emails are: no manufacturer name, contact
+// or shipment value, so the marketplace cannot be bypassed. Those details are
+// released only by releaseManufacturerDetails() after payment.
+
+var COLOADER_OPEN_STATUSES = ['Approved', 'Quoted'];
+
+function portalRequireColoader(data) {
+  var session = portalVerifyToken(data && data.token);
+  if (!session) return { error: 'Your session has expired. Please sign in again.' };
+
+  // Membership is re-read from the sheet on every request; a client-supplied
+  // role is never trusted.
+  var registration = portalFindRegistration(session.email);
+  if (!registration || !registration.paid) {
+    return { error: 'Your membership is not active. Please contact MaritimeEdge support.' };
+  }
+  if (String(registration.membership).trim().toLowerCase() !== 'co-loader') {
+    return { error: 'This area is for Co-loader members only.' };
+  }
+  return { session: session, registration: registration };
+}
+
+function portalAnonymizedDeal(r, myQuote) {
+  return {
+    rfqId: r[0],
+    status: r[1],
+    postedAt: portalDateOnly(r[2]),
+    origin: r[7],
+    destination: r[8],
+    shipmentType: r[9],
+    cargoWeight: r[10],
+    cargoCategory: anonymizeCargo(r[11]),
+    containerCount: r[13],
+    incoterm: r[14],
+    readyDate: portalDateOnly(r[15]),
+    deadline: portalDateOnly(r[16]),
+    alreadyQuoted: !!myQuote,
+    myQuote: myQuote || null
+  };
+}
+
+function handleColoaderDeals(data) {
+  var auth = portalRequireColoader(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'success', company: auth.registration.companyName, deals: [] });
+  }
+
+  var myQuotes = portalQuotesByPartner(auth.registration.regId);
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  var deals = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0] || COLOADER_OPEN_STATUSES.indexOf(String(r[1]).trim()) < 0) continue;
+    deals.push(portalAnonymizedDeal(r, myQuotes[String(r[0]).trim().toUpperCase()]));
+  }
+
+  deals.reverse();
+
+  return jsonResponse({
+    status: 'success',
+    company: auth.registration.companyName,
+    membership: auth.registration.membership,
+    deals: deals
+  });
+}
+
+function portalQuotesByPartner(partnerId) {
+  var sheet = getSheet(TABS.QUOTES);
+  var out = {};
+  if (!sheet || sheet.getLastRow() <= 1) return out;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 12).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (String(r[2]).trim() !== String(partnerId).trim()) continue;
+    out[String(r[1]).trim().toUpperCase()] = {
+      quoteId: r[0],
+      quotedPrice: r[4],
+      transitTime: r[5],
+      validity: r[6],
+      submittedAt: portalDateOnly(r[9]),
+      status: r[10]
+    };
+  }
+  return out;
+}
+
+function handleColoaderQuote(data) {
+  var auth = portalRequireColoader(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var rfqId = String(data.rfqId || '').trim();
+
+  // Parsed strictly rather than stripped: '-500' must fail, not become 500.
+  var rawPrice = String(data.quotedPrice || '').trim().replace(/[\u20B9,\s]/g, '');
+  var price = parseFloat(rawPrice);
+
+  if (!rfqId) return jsonResponse({ status: 'error', message: 'Missing deal reference.' });
+  if (!/^\d+(\.\d{1,2})?$/.test(rawPrice) || !(price > 0)) {
+    return jsonResponse({ status: 'error', message: 'Enter a valid quotation amount.' });
+  }
+
+  var rfqSheet = getSheet(TABS.RFQ);
+  var rfqRow = rfqSheet ? findRowByColumn(rfqSheet, 1, rfqId) : null;
+  if (!rfqRow) return jsonResponse({ status: 'error', message: 'This deal is no longer available.' });
+
+  if (COLOADER_OPEN_STATUSES.indexOf(String(rfqRow[1]).trim()) < 0) {
+    return jsonResponse({ status: 'error', message: 'This deal is no longer accepting quotes.' });
+  }
+
+  var quotesHeaders = [
+    'Quote ID', 'RFQ ID', 'Partner ID', 'Company Name', 'Quoted Price (INR)',
+    'Transit Time (Days)', 'Validity (Days)', 'Breakdown', 'Notes',
+    'Submitted At', 'Status', 'Rank'
+  ];
+  var quotesSheet = getOrCreateSheet(TABS.QUOTES, quotesHeaders);
+  var partnerId = auth.registration.regId;
+
+  if (hasDuplicateQuote(quotesSheet, rfqId, partnerId)) {
+    return jsonResponse({ status: 'error', message: 'You have already quoted on this deal.' });
+  }
+
+  var quoteId = generateId('QT-', quotesSheet);
+
+  quotesSheet.appendRow([
+    quoteId, rfqId, partnerId, auth.registration.companyName,
+    price,
+    String(data.transitTime || '').trim(),
+    String(data.validity || '7').trim(),
+    String(data.breakdown || '').trim(),
+    String(data.notes || '').trim(),
+    new Date().toISOString(), 'Submitted', ''
+  ]);
+
+  updateRFQStatus(rfqId, 'Quoted');
+
+  sendTelegramToAdmin(
+    '\uD83D\uDCB0 *New Co-loader Quote*\n\n' +
+    '*RFQ:* ' + rfqId + '\n' +
+    '*From:* ' + auth.registration.companyName + ' (' + partnerId + ')\n' +
+    '*Price:* ' + formatINR(price) + '\n' +
+    '*Transit:* ' + (data.transitTime || 'N/A') + ' days\n\n' +
+    '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to review quotes.'
+  );
+
+  return jsonResponse({ status: 'success', quoteId: quoteId, message: 'Quotation submitted.' });
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────

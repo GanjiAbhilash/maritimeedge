@@ -2825,6 +2825,134 @@ ul {
   background: #059669;
 }
 
+/* ========== Co-loader deals board ========== */
+.deal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 16px;
+  padding: 20px 24px;
+}
+
+.deal-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.deal-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.deal-card--quoted {
+  background: var(--bg-alt);
+  border-color: var(--success);
+}
+
+.deal-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.deal-card__ref {
+  font-weight: 800;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.deal-card__posted {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.deal-card__route {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.45;
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+
+.deal-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  margin-bottom: 16px;
+}
+
+.deal-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.84rem;
+}
+
+.deal-card__row span:first-child {
+  color: var(--text-light);
+  flex-shrink: 0;
+}
+
+.deal-card__row span:last-child {
+  color: var(--text);
+  font-weight: 600;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+
+.deal-card__btn {
+  margin-top: auto;
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.deal-card__btn:hover {
+  background: var(--primary-mid);
+}
+
+.deal-card__quoted {
+  margin-top: auto;
+  padding: 11px 14px;
+  border-radius: 10px;
+  background: var(--success-light);
+  color: #065F46;
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.deal-card__anon {
+  font-size: 0.74rem;
+  color: var(--text-light);
+  margin-top: 10px;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .deal-grid {
+    padding: 16px;
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
   .auth__grid {
     grid-template-columns: 1fr;

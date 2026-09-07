@@ -573,6 +573,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  function portalIsColoader(membership) {
+    return String(membership || '').trim().toLowerCase() === 'co-loader';
+  }
+
+  function portalHomePage(membership) {
+    return portalIsColoader(membership) ? 'deals.html' : 'dashboard.html';
+  }
+
   // ─── 9. Login / Sign Up Page ───────────────────────────────
   var authTabs = document.querySelectorAll('.auth__tab');
 
@@ -654,9 +662,10 @@ document.addEventListener('DOMContentLoaded', () => {
           name: res.contactName || res.name || roleLabel,
           company: res.companyName || '',
           role: res.role || (type === 'admin-login' ? 'admin' : 'customer'),
+          membership: res.membership || '',
           expiresAt: res.expiresAt || new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
         });
-        window.location.href = 'dashboard.html';
+        window.location.href = portalHomePage(res.membership);
       }).catch(function() {
         portalBusy(form, false);
         portalShowMsg(msgEl, 'The booking portal service is not reachable right now. Check your connection or try again shortly.', 'error');
@@ -871,6 +880,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!session) {
       dashGuardMsg.textContent = 'Your session has expired or you are not signed in.';
       dashGuardLink.style.display = '';
+      return;
+    }
+
+    // Co-loaders have their own board; send them there rather than showing an
+    // empty jobs table.
+    if (session.role !== 'admin' && portalIsColoader(session.membership)) {
+      window.location.replace('deals.html');
       return;
     }
 
@@ -1573,7 +1589,272 @@ document.addEventListener('DOMContentLoaded', () => {
     loadBookings();
   }
 
-  // ─── 13. Sample Booking Generator (layout preview only) ────
+  // ─── 13. Co-loader Deals Board ─────────────────────────────
+  var dealsContent = document.getElementById('deals-content');
+
+  if (dealsContent) {
+    var dealsGuard = document.getElementById('deals-guard');
+    var dealsGuardMsg = document.getElementById('deals-guard-msg');
+    var dealsGuardLink = document.getElementById('deals-guard-link');
+    var dealsList = document.getElementById('deals-list');
+    var dealsEmpty = document.getElementById('deals-empty');
+    var dealsCount = document.getElementById('deals-count');
+    var dealsSearch = document.getElementById('deals-search');
+    var dealsFilter = document.getElementById('deals-filter');
+    var dealsNotice = document.getElementById('deals-notice');
+
+    var dealsSession = portalReadSession();
+    var allDeals = [];
+
+    if (!dealsSession) {
+      dealsGuardMsg.textContent = 'Your session has expired or you are not signed in.';
+      dealsGuardLink.style.display = '';
+      return;
+    }
+
+    if (!portalIsColoader(dealsSession.membership)) {
+      window.location.replace('dashboard.html');
+      return;
+    }
+
+    function dealsShowNotice(text, kind) {
+      dealsNotice.textContent = '';
+      var div = document.createElement('div');
+      div.className = 'notice notice--' + kind;
+      div.textContent = text;
+      dealsNotice.appendChild(div);
+    }
+
+    function dealRow(label, value) {
+      var row = document.createElement('div');
+      row.className = 'deal-card__row';
+      var l = document.createElement('span');
+      l.textContent = label;
+      var v = document.createElement('span');
+      v.textContent = value || '—';
+      row.appendChild(l);
+      row.appendChild(v);
+      return row;
+    }
+
+    function filteredDeals() {
+      var term = (dealsSearch.value || '').trim().toLowerCase();
+      var mode = dealsFilter.value;
+
+      return allDeals.filter(function(d) {
+        if (mode === 'quoted' && !d.alreadyQuoted) return false;
+        if (mode === 'unquoted' && d.alreadyQuoted) return false;
+        if (!term) return true;
+        return [d.rfqId, d.origin, d.destination, d.cargoCategory, d.shipmentType, d.incoterm]
+          .join(' ').toLowerCase().indexOf(term) > -1;
+      });
+    }
+
+    function renderDealStats() {
+      var quoted = allDeals.filter(function(d) { return d.alreadyQuoted; }).length;
+      document.getElementById('stat-open').textContent = allDeals.length;
+      document.getElementById('stat-quoted').textContent = quoted;
+      document.getElementById('stat-unquoted').textContent = allDeals.length - quoted;
+    }
+
+    function renderDeals() {
+      var list = filteredDeals();
+      dealsList.textContent = '';
+      dealsEmpty.hidden = list.length > 0;
+      dealsCount.textContent = list.length + (list.length === 1 ? ' deal' : ' deals');
+
+      list.forEach(function(d) {
+        var card = document.createElement('div');
+        card.className = 'deal-card' + (d.alreadyQuoted ? ' deal-card--quoted' : '');
+
+        var top = document.createElement('div');
+        top.className = 'deal-card__top';
+        var refWrap = document.createElement('div');
+        var ref = document.createElement('span');
+        ref.className = 'deal-card__ref';
+        ref.textContent = d.rfqId;
+        var posted = document.createElement('span');
+        posted.className = 'deal-card__posted';
+        posted.textContent = 'Posted ' + (d.postedAt || '—');
+        refWrap.appendChild(ref);
+        refWrap.appendChild(posted);
+        top.appendChild(refWrap);
+        top.appendChild(statusBadge(d));
+        card.appendChild(top);
+
+        var route = document.createElement('div');
+        route.className = 'deal-card__route';
+        route.textContent = d.origin + ' → ' + d.destination;
+        card.appendChild(route);
+
+        var rows = document.createElement('div');
+        rows.className = 'deal-card__rows';
+        rows.appendChild(dealRow('Cargo', d.cargoCategory));
+        rows.appendChild(dealRow('Shipment Type', d.shipmentType));
+        rows.appendChild(dealRow('Weight', d.cargoWeight));
+        rows.appendChild(dealRow('Containers', d.containerCount));
+        rows.appendChild(dealRow('Incoterm', d.incoterm));
+        rows.appendChild(dealRow('Cargo Ready', d.readyDate));
+        rows.appendChild(dealRow('Delivery By', d.deadline));
+        card.appendChild(rows);
+
+        if (d.alreadyQuoted) {
+          var done = document.createElement('div');
+          done.className = 'deal-card__quoted';
+          done.textContent = 'Quoted ₹' + d.myQuote.quotedPrice +
+            (d.myQuote.transitTime ? ' · ' + d.myQuote.transitTime + ' days' : '') +
+            ' on ' + d.myQuote.submittedAt;
+          card.appendChild(done);
+        } else {
+          var btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'deal-card__btn';
+          btn.textContent = 'Add Quotation';
+          btn.addEventListener('click', function() { openQuoteForm(d); });
+          card.appendChild(btn);
+        }
+
+        var anon = document.createElement('div');
+        anon.className = 'deal-card__anon';
+        anon.textContent = 'Shipper details are shared after the deal is awarded.';
+        card.appendChild(anon);
+
+        dealsList.appendChild(card);
+      });
+    }
+
+    function statusBadge(d) {
+      var span = document.createElement('span');
+      span.className = 'status-pill status-pill--' + (d.alreadyQuoted ? 'delivered' : 'transit');
+      span.textContent = d.alreadyQuoted ? 'Quoted' : 'Open';
+      return span;
+    }
+
+    // ── Quotation modal ──
+    var quoteModal = document.getElementById('quote-modal');
+    var coloaderQuoteForm = document.getElementById('coloader-quote-form');
+    var quoteMsg = document.getElementById('qf-msg');
+    var quoteTarget = null;
+    var quoteLastFocus = null;
+
+    function openQuoteForm(deal) {
+      quoteTarget = deal;
+      quoteLastFocus = document.activeElement;
+      portalHideMsg(quoteMsg);
+      coloaderQuoteForm.reset();
+      document.getElementById('qf-validity').value = '7';
+
+      document.getElementById('quote-modal-title').textContent = 'Quote on ' + deal.rfqId;
+      document.getElementById('quote-modal-subtitle').textContent = deal.origin + ' → ' + deal.destination;
+      document.getElementById('quote-deal-summary').textContent =
+        deal.cargoCategory + ' · ' + deal.shipmentType + ' · ' + deal.cargoWeight +
+        ' · ' + deal.containerCount + ' container(s) · ' + deal.incoterm +
+        (deal.deadline ? ' · deliver by ' + deal.deadline : '');
+
+      quoteModal.hidden = false;
+      quoteModal.classList.add('modal--open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('quote-modal-close').focus();
+    }
+
+    function closeQuoteForm() {
+      quoteModal.classList.remove('modal--open');
+      quoteModal.hidden = true;
+      document.body.style.overflow = '';
+      quoteTarget = null;
+      if (quoteLastFocus && quoteLastFocus.focus) quoteLastFocus.focus();
+    }
+
+    document.getElementById('quote-modal-close').addEventListener('click', closeQuoteForm);
+    quoteModal.addEventListener('click', function(e) { if (e.target === quoteModal) closeQuoteForm(); });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && quoteModal.classList.contains('modal--open')) closeQuoteForm();
+    });
+
+    coloaderQuoteForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      if (!quoteTarget) return;
+      portalHideMsg(quoteMsg);
+
+      var rawPrice = document.getElementById('qf-price').value.trim().replace(/[₹,\s]/g, '');
+      var price = parseFloat(rawPrice);
+      if (!/^\d+(\.\d{1,2})?$/.test(rawPrice) || !(price > 0)) {
+        portalShowMsg(quoteMsg, 'Enter a valid quotation amount in rupees.', 'error');
+        return;
+      }
+
+      portalBusy(coloaderQuoteForm, true, 'Submitting…');
+
+      portalApi({
+        type: 'coloader-quote',
+        token: dealsSession.token,
+        rfqId: quoteTarget.rfqId,
+        quotedPrice: String(price),
+        transitTime: document.getElementById('qf-transit').value.trim(),
+        validity: document.getElementById('qf-validity').value.trim() || '7',
+        breakdown: document.getElementById('qf-breakdown').value.trim(),
+        notes: document.getElementById('qf-notes').value.trim(),
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(coloaderQuoteForm, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(quoteMsg, (res && res.message) || 'Could not submit the quotation.', 'error');
+          return;
+        }
+        closeQuoteForm();
+        dealsShowNotice('Quotation ' + res.quoteId + ' submitted. We will contact you if you are shortlisted.', 'info');
+        loadDeals();
+      }).catch(function() {
+        portalBusy(coloaderQuoteForm, false);
+        portalShowMsg(quoteMsg, 'The service is not reachable right now. Please try again.', 'error');
+      });
+    });
+
+    function loadDeals() {
+      portalApi({ type: 'coloader-deals', token: dealsSession.token }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          dealsGuardMsg.textContent = (res && res.message) || 'Your session is no longer valid. Please sign in again.';
+          dealsGuardLink.style.display = '';
+          dealsGuard.hidden = false;
+          dealsContent.hidden = true;
+          return;
+        }
+
+        allDeals = res.deals || [];
+
+        var label = res.company || dealsSession.company || dealsSession.email;
+        document.getElementById('deals-avatar').textContent = label.trim().charAt(0).toUpperCase();
+        document.getElementById('deals-user-name').textContent = label;
+        document.getElementById('deals-user-meta').textContent =
+          'Co-loader member · ' + dealsSession.email;
+
+        renderDealStats();
+        renderDeals();
+
+        if (!allDeals.length) {
+          dealsShowNotice('There are no open deals right now. New enquiries appear here as soon as our team approves them.', 'info');
+        }
+
+        dealsGuard.hidden = true;
+        dealsContent.hidden = false;
+      }).catch(function() {
+        dealsGuardMsg.textContent = 'The deals service is not reachable right now. Please refresh in a moment.';
+        dealsGuardLink.style.display = '';
+      });
+    }
+
+    dealsSearch.addEventListener('input', renderDeals);
+    dealsFilter.addEventListener('change', renderDeals);
+    document.getElementById('deals-refresh').addEventListener('click', loadDeals);
+    document.getElementById('deals-logout').addEventListener('click', function() {
+      portalClearSession();
+      window.location.href = 'login.html';
+    });
+
+    loadDeals();
+  }
+
+  // ─── 14. Sample Booking Generator (layout preview only) ────
   // Produces clearly-labelled placeholder records. Never presented as real
   // job data — the dashboard always shows a warning banner alongside it.
   function portalDemoBookings() {
