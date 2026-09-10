@@ -1661,7 +1661,7 @@ document.addEventListener('DOMContentLoaded', () => {
           portalShowMsg(reqMsg, (res && res.message) || 'Could not submit the requirement.', 'error');
           return;
         }
-        portalShowMsg(reqMsg, 'Requirement ' + res.rfqId + ' created. Opening it on your board…', 'success');
+        portalShowMsg(reqMsg, 'Requirement ' + res.rfqId + ' created and shared with co-loaders. Opening it on your board…', 'success');
         window.setTimeout(function() {
           closeRequirementForm();
           currentPage = 1;

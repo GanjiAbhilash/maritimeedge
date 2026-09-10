@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-07-coloader-routing-fix';
+var SCRIPT_VERSION = '2026-09-10-customer-self-service-rfq';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -890,7 +890,8 @@ function portalRfqRecord(email) {
 
 // A signed-in customer raises their own requirement and gets a job row in the
 // same call, so their board never waits on an admin conversion step. The RFQ
-// row still opens as 'Pending' so the partner approval flow is unchanged.
+// is auto-approved because the account is already verified and paid, which
+// puts it straight on the co-loader deals board with no partner selection.
 function handleCustomerRfq(data) {
   var session = portalVerifyToken(data.token);
   if (!session) {
@@ -955,37 +956,49 @@ function handleCustomerRfq(data) {
 
   var sheet = getOrCreateSheet(TABS.RFQ, RFQ_HEADERS);
   var rfqId = generateId('ME-RFQ-', sheet);
+  var now = new Date().toISOString();
 
+  // 'Approved' is what COLOADER_OPEN_STATUSES looks for, and a blank partner
+  // list means every co-loader member sees it rather than a chosen few.
   sheet.appendRow([
-    rfqId, 'Pending', new Date().toISOString(),
+    rfqId, 'Approved', now,
     payload.fullName, payload.email, payload.phone, payload.company,
     payload.origin, payload.destination, payload.shipmentType,
     payload.cargoWeight, payload.commodity, payload.shipmentValue,
     payload.containerCount, payload.incoterm, payload.readyDate,
-    payload.deliveryDate, payload.message, '', '', '', 'Raised by customer from portal'
+    payload.deliveryDate, payload.message,
+    '', 'Auto-approved (verified customer)', now, 'Raised by customer from portal'
   ]);
 
   portalRfqRecord(session.email);
 
-  var job = portalCreateJobCore(rfqId, {
-    status: 'Booked',
-    paymentStatus: 'Pending',
-    createdBy: session.email,
-    rfqStatus: 'Pending',
-    remarks: 'Raised by customer from portal'
-  });
+  // The RFQ row is already live, so a job failure is reported as a warning
+  // rather than losing the requirement the customer just submitted.
+  var job;
+  try {
+    job = portalCreateJobCore(rfqId, {
+      status: 'Booked',
+      paymentStatus: 'Pending',
+      createdBy: session.email,
+      rfqStatus: 'Approved',
+      remarks: 'Raised by customer from portal'
+    });
+  } catch (err) {
+    job = { error: 'The job record could not be created: ' + err };
+  }
 
   // Notifications are best-effort: a MailApp quota error must not turn a row
   // that is already written into a failed submission.
   try {
     sendRFQConfirmation(payload, rfqId);
     sendTelegramToAdmin(
-      '\uD83D\uDCE6 *New Customer Requirement*\n\n' +
+      '\uD83D\uDCE6 *New Customer Requirement (auto-approved)*\n\n' +
       '*RFQ:* ' + rfqId + '\n' +
       '*Job:* ' + (job.jobId || 'not created') + '\n' +
       '*Route:* ' + payload.origin + ' \u2192 ' + payload.destination + '\n' +
       '*Cargo:* ' + payload.commodity + ' \u00b7 ' + payload.cargoWeight + '\n' +
       '*Company:* ' + (payload.company || payload.email) + '\n\n' +
+      'Live on the co-loader deals board \u2014 no approval needed.\n' +
       '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to assign a vehicle.'
     );
     sendRFQNotificationEmail(payload, rfqId);
