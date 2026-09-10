@@ -61,6 +61,7 @@
             </div>
           </div>
           <div class="dash__actions">
+            <span class="session-timer" id="deals-session-timer" role="status" aria-live="polite" hidden></span>
             <button type="button" class="btn btn--outline btn--sm" id="deals-refresh">Refresh</button>
             <button type="button" class="btn btn--primary btn--sm" id="deals-logout">Sign Out</button>
           </div>
@@ -84,6 +85,11 @@
             <div class="stat-card__value" id="stat-quoted">0</div>
             <div class="stat-card__note">Awaiting our shortlisting</div>
           </div>
+          <div class="stat-card">
+            <div class="stat-card__label">Awarded</div>
+            <div class="stat-card__value" id="stat-awarded">0</div>
+            <div class="stat-card__note">Shortlisted or unlocked deals</div>
+          </div>
         </div>
 
         <div class="dash__panel">
@@ -103,6 +109,18 @@
 
           <div id="deals-list" class="deal-grid"></div>
           <div class="dash__empty" id="deals-empty" hidden>No open deals match your search right now.</div>
+        </div>
+
+        <div class="dash__panel" style="margin-top:24px;">
+          <div class="ops__head">
+            <div>
+              <h2 class="ops__title">My Quotations</h2>
+              <p class="ops__note">Track every rate you have submitted, settle the commission, and open shipper details once a deal is released.</p>
+            </div>
+            <span class="dash__count" id="myq-count">0 quotations</span>
+          </div>
+          <div id="myq-list" class="deal-grid"></div>
+          <div class="dash__empty" id="myq-empty" hidden>You have not submitted any quotations yet.</div>
         </div>
 
       </div>
@@ -148,6 +166,29 @@
 
           <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;">Submit Quotation</button>
           <p class="auth__msg" id="qf-msg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="reauth-modal" role="dialog" aria-modal="true" aria-labelledby="reauth-modal-title" hidden>
+    <div class="modal__card" style="max-width:460px;">
+      <div class="modal__head">
+        <div>
+          <div class="modal__title" id="reauth-modal-title">Session Expiring</div>
+          <div class="modal__subtitle">Re-enter your password to carry on without losing this page.</div>
+        </div>
+        <button type="button" class="modal__close" id="reauth-modal-close" aria-label="Dismiss">&#10005;</button>
+      </div>
+      <div class="modal__body">
+        <form class="form" id="reauth-form" novalidate>
+          <div class="form__group">
+            <label class="form__label" for="reauth-password">Password</label>
+            <input type="password" class="form__input" id="reauth-password" autocomplete="current-password" required>
+            <p class="auth__hint" id="reauth-email"></p>
+          </div>
+          <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;">Stay Signed In</button>
+          <p class="auth__msg" id="reauth-msg" role="status" aria-live="polite"></p>
         </form>
       </div>
     </div>

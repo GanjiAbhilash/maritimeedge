@@ -593,8 +593,179 @@ document.addEventListener('DOMContentLoaded', () => {
     try { window.sessionStorage.removeItem('me_portal_redirects'); } catch (err) {}
   }
 
-  function portalHomePage(membership) {
+  // Admin sessions carry no membership, so role is checked before it.
+  function portalHomePage(role, membership) {
+    if (role === 'admin') return 'dashboard.html';
     return portalIsColoader(membership) ? 'deals.html' : 'dashboard.html';
+  }
+
+  // Attaches the session token and turns a server-side expiry into a single
+  // clean redirect, so no caller has to special-case a dead token.
+  function portalApiAuth(payload) {
+    var session = portalReadSession();
+    if (!session) {
+      window.location.replace('login.html?expired=1');
+      return new Promise(function() { /* navigating away */ });
+    }
+
+    var body = { token: session.token };
+    Object.keys(payload || {}).forEach(function(key) {
+      if (key !== 'token') body[key] = payload[key];
+    });
+
+    return portalApi(body).then(function(res) {
+      if (res && res.status === 'error' && /session has expired/i.test(res.message || '')) {
+        portalClearSession();
+        window.location.replace('login.html?expired=1');
+        throw new Error('session-expired');
+      }
+      return res;
+    });
+  }
+
+  function portalINR(value) {
+    var n = parseFloat(String(value === null || value === undefined ? '' : value).replace(/[^\d.-]/g, ''));
+    if (isNaN(n)) return '—';
+    return '\u20B9' + n.toLocaleString('en-IN');
+  }
+
+  // Admin tokens last two hours and the marketplace console is the longest-dwell
+  // screen on the site, so the remaining time stays visible and the re-auth
+  // prompt arrives before the session lapses rather than after.
+  function portalStartSessionTimer(labelEl, onWarn, onExpire) {
+    var session = portalReadSession();
+    if (!labelEl || !session || !session.expiresAt) return;
+
+    var expiry = new Date(session.expiresAt).getTime();
+    if (isNaN(expiry)) return;
+
+    var warned = false;
+    labelEl.hidden = false;
+
+    var tick = function() {
+      var left = expiry - Date.now();
+
+      if (left <= 0) {
+        labelEl.textContent = 'Session expired';
+        labelEl.className = 'session-timer session-timer--expired';
+        if (onExpire) onExpire();
+        return;
+      }
+
+      var totalMins = Math.floor(left / 60000);
+      var hrs = Math.floor(totalMins / 60);
+      labelEl.textContent = hrs
+        ? 'Session ' + hrs + 'h ' + (totalMins % 60) + 'm left'
+        : 'Session ' + Math.max(1, totalMins) + 'm left';
+      labelEl.className = 'session-timer' + (totalMins < 10 ? ' session-timer--warn' : '');
+
+      if (!warned && left <= 5 * 60000) {
+        warned = true;
+        if (onWarn) onWarn();
+      }
+      window.setTimeout(tick, 30000);
+    };
+
+    tick();
+  }
+
+  // Re-signing in swaps the token in place and reloads, so a long session on
+  // the marketplace console is never lost to a silent bounce to login.
+  function portalMountReauth() {
+    var modal = document.getElementById('reauth-modal');
+    if (!modal) return null;
+
+    // Captured now: once the token lapses portalReadSession() returns null and
+    // the email needed to re-authenticate would be gone.
+    var identity = portalReadSession();
+    if (!identity) return null;
+
+    var form = document.getElementById('reauth-form');
+    var msg = document.getElementById('reauth-msg');
+    var pwd = document.getElementById('reauth-password');
+    var emailHint = document.getElementById('reauth-email');
+    var closeBtn = document.getElementById('reauth-modal-close');
+    var lastFocus = null;
+
+    function close() {
+      modal.classList.remove('modal--open');
+      modal.hidden = true;
+      document.body.style.overflow = '';
+      if (lastFocus && lastFocus.focus) lastFocus.focus();
+    }
+
+    function open(expired) {
+      if (modal.classList.contains('modal--open')) return;
+      lastFocus = document.activeElement;
+      portalHideMsg(msg);
+      form.reset();
+      emailHint.textContent = 'Signing in as ' + identity.email;
+      if (expired) portalShowMsg(msg, 'Your session has expired. Sign in again to continue.', 'error');
+      modal.hidden = false;
+      modal.classList.add('modal--open');
+      document.body.style.overflow = 'hidden';
+      pwd.focus();
+    }
+
+    closeBtn.addEventListener('click', close);
+    modal.addEventListener('click', function(e) { if (e.target === modal) close(); });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && modal.classList.contains('modal--open')) close();
+    });
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(msg);
+
+      if (!pwd.value) {
+        portalShowMsg(msg, 'Enter your password.', 'error');
+        return;
+      }
+
+      portalBusy(form, true, 'Signing in…');
+
+      portalApi({
+        type: identity.role === 'admin' ? 'admin-login' : 'customer-login',
+        email: identity.email,
+        password: pwd.value,
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(form, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(msg, (res && res.message) || 'Incorrect password.', 'error');
+          return;
+        }
+        portalWriteSession({
+          token: res.token,
+          email: res.email || identity.email,
+          name: res.contactName || identity.name,
+          company: res.companyName || identity.company,
+          role: res.role || identity.role,
+          membership: res.membership || identity.membership || '',
+          expiresAt: res.expiresAt
+        });
+        close();
+        window.location.reload();
+      }).catch(function() {
+        portalBusy(form, false);
+        portalShowMsg(msg, 'The portal service is not reachable right now. Please try again.', 'error');
+      });
+    });
+
+    return { open: open };
+  }
+
+  // Wires the countdown to the re-auth prompt on any page that has both.
+  function portalGuardSession(timerEl) {
+    var reauth = portalMountReauth();
+    portalStartSessionTimer(
+      timerEl,
+      function() { if (reauth) reauth.open(false); },
+      function() {
+        if (reauth) reauth.open(true);
+        else window.location.replace('login.html?expired=1');
+      }
+    );
   }
 
   // ─── 9. Login / Sign Up Page ───────────────────────────────
@@ -633,7 +804,13 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.location.hash === '#forgot') activateAuthTab('forgot');
 
     var existing = portalReadSession();
-    if (existing) {
+    if (new URLSearchParams(window.location.search).get('expired')) {
+      portalShowMsg(
+        document.getElementById('login-msg'),
+        'Your session expired, so you were signed out. Sign in again to pick up where you left off.',
+        'error'
+      );
+    } else if (existing) {
       portalShowMsg(
         document.getElementById('login-msg'),
         'You are already signed in as ' + existing.email + '. Open your dashboard, or sign in below with a different account.',
@@ -681,7 +858,10 @@ document.addEventListener('DOMContentLoaded', () => {
           membership: res.membership || '',
           expiresAt: res.expiresAt || new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
         });
-        window.location.href = portalHomePage(res.membership);
+        window.location.href = portalHomePage(
+          res.role || (type === 'admin-login' ? 'admin' : 'customer'),
+          res.membership
+        );
       }).catch(function() {
         portalBusy(form, false);
         portalShowMsg(msgEl, 'The booking portal service is not reachable right now. Check your connection or try again shortly.', 'error');
@@ -1366,7 +1546,12 @@ document.addEventListener('DOMContentLoaded', () => {
           showNotice('No jobs are linked to this account yet. Raise a new requirement and it will appear here straight away.', 'info');
         }
         revealDashboard();
-        if (isAdmin) loadOpsQueue();
+        if (isAdmin) {
+          loadOpsQueue();
+          loadMarketplace();
+        } else {
+          loadEnquiries();
+        }
       }).catch(function() {
         dashGuardMsg.textContent = 'The booking service is not reachable right now. Please refresh in a moment.';
         dashGuardLink.style.display = '';
@@ -1740,6 +1925,501 @@ document.addEventListener('DOMContentLoaded', () => {
       renderTable();
     });
 
+    // ── Customer: enquiry pipeline (RFQ → quotations → commission → deal) ──
+    var enqPanel = document.getElementById('enq-panel');
+    var enqList = document.getElementById('enq-list');
+
+    function rfqStageClass(status) {
+      var s = String(status || '').toLowerCase();
+      if (s.indexOf('reject') > -1) return 'hold';
+      if (s.indexOf('closed') > -1) return 'delivered';
+      if (s.indexOf('paid') > -1) return 'gatein';
+      if (s.indexOf('quoted') > -1) return 'transit';
+      if (s.indexOf('approved') > -1 || s.indexOf('job') > -1) return 'assigned';
+      return 'booked';
+    }
+
+    function loadEnquiries() {
+      if (isAdmin || session.demo || !enqPanel) return;
+      enqPanel.hidden = false;
+      enqList.textContent = 'Loading your enquiries…';
+
+      portalApiAuth({ type: 'customer-rfq-status' }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          enqList.textContent = (res && res.message) || 'Could not load your enquiries.';
+          return;
+        }
+        renderEnquiries(res.rfqs || []);
+      }).catch(function() {
+        enqList.textContent = 'Enquiries are unavailable right now.';
+      });
+    }
+
+    function renderEnquiries(rows) {
+      enqList.textContent = '';
+
+      if (!rows.length) {
+        var empty = document.createElement('p');
+        empty.className = 'ops__empty';
+        empty.textContent = 'You have not raised any enquiries yet.';
+        enqList.appendChild(empty);
+        return;
+      }
+
+      rows.forEach(function(r) {
+        var card = document.createElement('div');
+        card.className = 'ops-card';
+
+        var head = document.createElement('div');
+        head.className = 'ops-card__id';
+        head.appendChild(document.createTextNode(r.rfqId + ' · '));
+        var pill = document.createElement('span');
+        pill.className = 'status-pill status-pill--' + rfqStageClass(r.status);
+        pill.textContent = r.status || 'Pending';
+        head.appendChild(pill);
+        card.appendChild(head);
+
+        var lines = [
+          r.origin + ' → ' + r.destination,
+          (r.commodity || '—') + ' · ' + (r.shipmentType || '—') + ' · ' + (r.cargoWeight || '—'),
+          r.quoteCount + (r.quoteCount === 1 ? ' quotation received' : ' quotations received'),
+          r.matchedPartner
+            ? 'Awarded to ' + r.matchedPartner
+            : 'The winning partner is named once the deal is awarded.'
+        ];
+
+        var meta = document.createElement('div');
+        meta.className = 'ops-card__meta';
+        lines.forEach(function(line, i) {
+          if (i) meta.appendChild(document.createElement('br'));
+          meta.appendChild(document.createTextNode(line));
+        });
+        card.appendChild(meta);
+
+        enqList.appendChild(card);
+      });
+    }
+
+    // ── Admin: marketplace console (approve → compare → commission → release) ──
+    var mktPanel = document.getElementById('mkt-panel');
+    var mktMsg = document.getElementById('mkt-msg');
+    var mktApprovals = document.getElementById('mkt-approvals');
+    var mktQuotes = document.getElementById('mkt-quotes');
+    var mktQuoteRfq = document.getElementById('mkt-quote-rfq');
+    var mktQuoteCount = document.getElementById('mkt-quote-count');
+    var mktPayments = document.getElementById('mkt-payments');
+    var mktDeals = document.getElementById('mkt-deals');
+    var approveModal = document.getElementById('approve-modal');
+    var approvePartners = document.getElementById('approve-partners');
+    var approveMsg = document.getElementById('approve-msg');
+
+    var mktData = { rfqs: [], partners: [], payments: [], deals: [], commissionPercent: 1 };
+    var approveTarget = null;
+
+    function mktShowMsg(res, fallback) {
+      if (!mktMsg) return;
+      mktMsg.textContent = '';
+      var ok = res && res.status === 'success';
+      var div = document.createElement('div');
+      div.className = 'notice notice--' + (ok ? 'info' : 'warn');
+      div.textContent = ok
+        ? (res.message || fallback) + (res.warning ? ' ' + res.warning : '')
+        : ((res && res.message) || 'That action could not be completed.');
+      mktMsg.appendChild(div);
+    }
+
+    function emptyLine(target, text) {
+      target.textContent = '';
+      var p = document.createElement('p');
+      p.className = 'ops__empty';
+      p.textContent = text;
+      target.appendChild(p);
+    }
+
+    function moneyCard(title, amount) {
+      var head = document.createElement('div');
+      head.className = 'quote-card__head';
+      var name = document.createElement('span');
+      name.className = 'quote-card__name';
+      name.textContent = title;
+      head.appendChild(name);
+      var price = document.createElement('span');
+      price.className = 'quote-card__price';
+      price.textContent = portalINR(amount);
+      head.appendChild(price);
+      return head;
+    }
+
+    function loadMarketplace() {
+      if (!isAdmin || session.demo || !mktPanel) return;
+      mktPanel.hidden = false;
+      mktApprovals.textContent = 'Loading enquiries…';
+
+      portalApiAuth({ type: 'admin-marketplace' }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          mktApprovals.textContent = (res && res.message) || 'Could not load the marketplace.';
+          return;
+        }
+        mktData = {
+          rfqs: res.rfqs || [],
+          partners: res.partners || [],
+          payments: res.payments || [],
+          deals: res.deals || [],
+          commissionPercent: res.commissionPercent || 1
+        };
+        renderApprovals();
+        renderQuoteSelector();
+        renderPayments();
+        renderClosedDeals();
+      }).catch(function() {
+        mktApprovals.textContent = 'The marketplace service is not reachable right now.';
+      });
+    }
+
+    function renderApprovals() {
+      var pending = mktData.rfqs.filter(function(r) { return String(r.status).trim() === 'Pending'; });
+
+      if (!pending.length) {
+        emptyLine(mktApprovals, 'No enquiries are waiting for approval.');
+        return;
+      }
+
+      mktApprovals.textContent = '';
+      pending.forEach(function(r) {
+        var card = document.createElement('div');
+        card.className = 'ops-card';
+
+        var id = document.createElement('div');
+        id.className = 'ops-card__id';
+        id.textContent = r.rfqId + ' · ' + (r.company || r.email);
+        card.appendChild(id);
+
+        var meta = document.createElement('div');
+        meta.className = 'ops-card__meta';
+        [
+          r.origin + ' → ' + r.destination,
+          (r.commodity || '—') + ' · ' + (r.shipmentType || '—') + ' · ' + (r.cargoWeight || '—'),
+          'Shipment value ' + portalINR(r.shipmentValue)
+        ].forEach(function(line, i) {
+          if (i) meta.appendChild(document.createElement('br'));
+          meta.appendChild(document.createTextNode(line));
+        });
+        card.appendChild(meta);
+
+        var actions = document.createElement('div');
+        actions.className = 'ops-card__actions';
+
+        var approve = document.createElement('button');
+        approve.type = 'button';
+        approve.className = 'ops-card__btn';
+        approve.textContent = 'Approve';
+        approve.addEventListener('click', function() { openApprove(r); });
+        actions.appendChild(approve);
+
+        var reject = document.createElement('button');
+        reject.type = 'button';
+        reject.className = 'ops-card__btn ops-card__btn--ghost';
+        reject.textContent = 'Reject';
+        reject.addEventListener('click', function() { rejectEnquiry(r); });
+        actions.appendChild(reject);
+
+        card.appendChild(actions);
+        mktApprovals.appendChild(card);
+      });
+    }
+
+    function rejectEnquiry(r) {
+      var reason = window.prompt('Reason for rejecting ' + r.rfqId + '?', '');
+      if (reason === null) return;
+
+      portalApiAuth({ type: 'admin-rfq-reject', rfqId: r.rfqId, reason: reason }).then(function(res) {
+        mktShowMsg(res, 'Enquiry rejected.');
+        if (res && res.status === 'success') loadMarketplace();
+      }).catch(function() {
+        mktShowMsg(null, '');
+      });
+    }
+
+    function openApprove(r) {
+      approveTarget = r;
+      portalHideMsg(approveMsg);
+      document.getElementById('approve-modal-subtitle').textContent =
+        r.rfqId + ' · ' + r.origin + ' → ' + r.destination;
+
+      approvePartners.textContent = '';
+      if (!mktData.partners.length) {
+        emptyLine(approvePartners, 'No partners on file. The enquiry still reaches every co-loader member.');
+      } else {
+        mktData.partners.forEach(function(p) {
+          var label = document.createElement('label');
+          label.className = 'check-list__item';
+
+          var cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.value = p.partnerId;
+          label.appendChild(cb);
+
+          var text = document.createElement('span');
+          text.textContent = p.companyName + ' (' + p.partnerId + ')';
+          label.appendChild(text);
+
+          approvePartners.appendChild(label);
+        });
+      }
+
+      approveModal.hidden = false;
+      approveModal.classList.add('modal--open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('approve-modal-close').focus();
+    }
+
+    function closeApprove() {
+      approveModal.classList.remove('modal--open');
+      approveModal.hidden = true;
+      document.body.style.overflow = '';
+      approveTarget = null;
+    }
+
+    function renderQuoteSelector() {
+      var previous = mktQuoteRfq.value;
+      mktQuoteRfq.textContent = '';
+
+      var blank = document.createElement('option');
+      blank.value = '';
+      blank.textContent = 'Select an enquiry…';
+      mktQuoteRfq.appendChild(blank);
+
+      mktData.rfqs.filter(function(r) { return (r.quoteCount || 0) > 0; }).forEach(function(r) {
+        var opt = document.createElement('option');
+        opt.value = r.rfqId;
+        opt.textContent = r.rfqId + ' — ' + r.origin + ' → ' + r.destination + ' (' + r.quoteCount + ')';
+        mktQuoteRfq.appendChild(opt);
+      });
+
+      // Keep the admin on the enquiry they were reviewing across refreshes.
+      mktQuoteRfq.value = previous;
+      if (mktQuoteRfq.value) loadQuotes(mktQuoteRfq.value);
+    }
+
+    function loadQuotes(rfqId) {
+      if (!rfqId) {
+        mktQuotes.textContent = '';
+        mktQuoteCount.textContent = '0 quotations';
+        return;
+      }
+      mktQuotes.textContent = 'Loading quotations…';
+
+      portalApiAuth({ type: 'admin-quotes', rfqId: rfqId }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          mktQuotes.textContent = (res && res.message) || 'Could not load quotations.';
+          return;
+        }
+        renderQuotes(res.quotes || []);
+      }).catch(function() {
+        mktQuotes.textContent = 'Quotations are unavailable right now.';
+      });
+    }
+
+    function renderQuotes(quotes) {
+      mktQuoteCount.textContent = quotes.length + (quotes.length === 1 ? ' quotation' : ' quotations');
+
+      if (!quotes.length) {
+        emptyLine(mktQuotes, 'No quotations on this enquiry yet.');
+        return;
+      }
+
+      mktQuotes.textContent = '';
+      quotes.forEach(function(q) {
+        var card = document.createElement('div');
+        card.className = 'quote-card' + (q.rank === 1 ? ' quote-card--best' : '');
+        card.appendChild(moneyCard('#' + q.rank + '  ' + q.companyName, q.quotedPrice));
+
+        var meta = document.createElement('div');
+        meta.className = 'quote-card__meta';
+        meta.textContent = [
+          q.quoteId,
+          (q.transitTime || '—') + ' days transit',
+          'valid ' + (q.validity || '—') + ' days',
+          q.status || 'Submitted'
+        ].join(' · ');
+        card.appendChild(meta);
+
+        if (q.breakdown) {
+          var bd = document.createElement('div');
+          bd.className = 'quote-card__meta';
+          bd.textContent = q.breakdown;
+          card.appendChild(bd);
+        }
+
+        var estimate = Math.max(100, Math.round((parseFloat(q.quotedPrice) || 0) * mktData.commissionPercent / 100));
+        var commission = document.createElement('div');
+        commission.className = 'quote-card__commission';
+        commission.textContent = 'Commission at ' + mktData.commissionPercent + '% ≈ ' + portalINR(estimate);
+        card.appendChild(commission);
+
+        var raised = String(q.status || '').toLowerCase().indexOf('submitted') < 0;
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ops-card__btn';
+        btn.textContent = raised ? 'Commission already raised' : 'Award & Raise Commission';
+        btn.disabled = raised;
+        if (!raised) btn.addEventListener('click', function() { sendPayment(q, btn); });
+        card.appendChild(btn);
+
+        mktQuotes.appendChild(card);
+      });
+    }
+
+    function sendPayment(q, btn) {
+      if (!window.confirm('Award ' + q.rfqId + ' to ' + q.companyName + ' and raise the commission invoice?')) return;
+      btn.disabled = true;
+      btn.textContent = 'Raising…';
+
+      portalApiAuth({ type: 'admin-send-payment', quoteId: q.quoteId, rfqId: q.rfqId })
+        .then(function(res) {
+          mktShowMsg(res, 'Commission raised.');
+          loadMarketplace();
+        }).catch(function() {
+          btn.disabled = false;
+          btn.textContent = 'Award & Raise Commission';
+        });
+    }
+
+    function renderPayments() {
+      if (!mktData.payments.length) {
+        emptyLine(mktPayments, 'No commission payments raised yet.');
+        return;
+      }
+
+      mktPayments.textContent = '';
+      mktData.payments.forEach(function(p) {
+        var card = document.createElement('div');
+        card.className = 'quote-card';
+        card.appendChild(moneyCard(p.paymentId + ' · ' + p.partnerName, p.commissionAmount));
+
+        var meta = document.createElement('div');
+        meta.className = 'quote-card__meta';
+        meta.textContent = [p.rfqId, p.quoteId, p.status].join(' · ');
+        card.appendChild(meta);
+
+        var actions = document.createElement('div');
+        actions.className = 'ops-card__actions';
+
+        if (p.razorpayLinkUrl) {
+          var link = document.createElement('a');
+          link.className = 'ops-card__btn ops-card__btn--ghost';
+          link.href = p.razorpayLinkUrl;
+          link.target = '_blank';
+          link.rel = 'noopener';
+          link.textContent = 'Open payment link';
+          actions.appendChild(link);
+        }
+
+        if (String(p.status).trim() === 'Pending') {
+          var confirmBtn = document.createElement('button');
+          confirmBtn.type = 'button';
+          confirmBtn.className = 'ops-card__btn';
+          confirmBtn.textContent = 'Mark as Received';
+          confirmBtn.addEventListener('click', function() { confirmPayment(p, confirmBtn); });
+          actions.appendChild(confirmBtn);
+        }
+
+        if (actions.childNodes.length) card.appendChild(actions);
+        mktPayments.appendChild(card);
+      });
+    }
+
+    function confirmPayment(p, btn) {
+      if (!window.confirm('Mark ' + p.paymentId + ' as received? This shares the shipper details with the partner and closes the deal.')) return;
+
+      btn.disabled = true;
+      portalApiAuth({ type: 'admin-confirm-payment', paymentId: p.paymentId }).then(function(res) {
+        mktShowMsg(res, 'Payment confirmed.');
+        loadMarketplace();
+      }).catch(function() { btn.disabled = false; });
+    }
+
+    function renderClosedDeals() {
+      if (!mktData.deals.length) {
+        emptyLine(mktDeals, 'No closed deals yet.');
+        return;
+      }
+
+      mktDeals.textContent = '';
+      mktData.deals.forEach(function(d) {
+        var card = document.createElement('div');
+        card.className = 'quote-card';
+        card.appendChild(moneyCard(d.dealId + ' · ' + d.logisticsCompany, d.commissionEarned));
+
+        var meta = document.createElement('div');
+        meta.className = 'quote-card__meta';
+        meta.textContent = [
+          d.rfqId,
+          d.manufacturerCompany || '—',
+          'shared ' + String(d.detailsSharedAt || '').slice(0, 10),
+          d.dealStatus
+        ].join(' · ');
+        card.appendChild(meta);
+
+        mktDeals.appendChild(card);
+      });
+    }
+
+    if (mktPanel) {
+      document.querySelectorAll('.mkt__tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.mkt__tab').forEach(function(t) {
+            var on = t === tab;
+            t.classList.toggle('mkt__tab--active', on);
+            t.setAttribute('aria-selected', on ? 'true' : 'false');
+          });
+          document.querySelectorAll('.mkt__panel').forEach(function(panel) {
+            panel.hidden = panel.id !== 'mkt-panel-' + tab.dataset.mktTab;
+          });
+        });
+      });
+
+      mktQuoteRfq.addEventListener('change', function() { loadQuotes(mktQuoteRfq.value); });
+      document.getElementById('mkt-refresh').addEventListener('click', loadMarketplace);
+
+      document.getElementById('approve-modal-close').addEventListener('click', closeApprove);
+      approveModal.addEventListener('click', function(e) {
+        if (e.target === approveModal) closeApprove();
+      });
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && approveModal.classList.contains('modal--open')) closeApprove();
+      });
+
+      document.getElementById('approve-submit').addEventListener('click', function() {
+        if (!approveTarget) return;
+        var btn = this;
+        var ids = [];
+        approvePartners.querySelectorAll('input[type="checkbox"]').forEach(function(cb) {
+          if (cb.checked) ids.push(cb.value);
+        });
+
+        btn.disabled = true;
+        portalApiAuth({ type: 'admin-rfq-approve', rfqId: approveTarget.rfqId, partnerIds: ids })
+          .then(function(res) {
+            btn.disabled = false;
+            if (!res || res.status !== 'success') {
+              portalShowMsg(approveMsg, (res && res.message) || 'Could not approve this enquiry.', 'error');
+              return;
+            }
+            closeApprove();
+            mktShowMsg(res, 'Enquiry approved.');
+            loadMarketplace();
+          }).catch(function() {
+            btn.disabled = false;
+            portalShowMsg(approveMsg, 'The service is not reachable right now.', 'error');
+          });
+      });
+    }
+
+    if (enqPanel) {
+      document.getElementById('enq-refresh').addEventListener('click', loadEnquiries);
+    }
+
     document.getElementById('dash-refresh').addEventListener('click', function() {
       currentPage = 1;
       loadBookings();
@@ -1750,6 +2430,7 @@ document.addEventListener('DOMContentLoaded', () => {
       window.location.href = 'login.html';
     });
 
+    portalGuardSession(document.getElementById('dash-session-timer'));
     loadBookings();
   }
 
@@ -1818,9 +2499,171 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderDealStats() {
       var quoted = allDeals.filter(function(d) { return d.alreadyQuoted; }).length;
+      var awarded = myQuotes.filter(function(q) {
+        return String(q.status || '').toLowerCase().indexOf('submitted') < 0;
+      }).length;
+
       document.getElementById('stat-open').textContent = allDeals.length;
       document.getElementById('stat-quoted').textContent = quoted;
       document.getElementById('stat-unquoted').textContent = allDeals.length - quoted;
+      document.getElementById('stat-awarded').textContent = awarded;
+    }
+
+    // ── My quotations: commission state and released shipper details ──
+    var myqList = document.getElementById('myq-list');
+    var myqEmpty = document.getElementById('myq-empty');
+    var myqCount = document.getElementById('myq-count');
+    var myQuotes = [];
+
+    function quoteStageClass(status) {
+      var s = String(status || '').toLowerCase();
+      if (s.indexOf('paid') > -1) return 'delivered';
+      if (s.indexOf('payment sent') > -1) return 'transit';
+      return 'assigned';
+    }
+
+    function loadMyQuotes() {
+      if (!myqList) return;
+
+      portalApiAuth({ type: 'coloader-my-quotes' }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          myqList.textContent = '';
+          myqEmpty.hidden = false;
+          myqEmpty.textContent = (res && res.message) || 'Could not load your quotations.';
+          return;
+        }
+        myQuotes = res.quotes || [];
+        renderMyQuotes();
+        renderDealStats();
+      }).catch(function() {
+        myqEmpty.hidden = false;
+        myqEmpty.textContent = 'Your quotations are unavailable right now.';
+      });
+    }
+
+    function renderMyQuotes() {
+      myqList.textContent = '';
+      myqCount.textContent = myQuotes.length + (myQuotes.length === 1 ? ' quotation' : ' quotations');
+      myqEmpty.hidden = myQuotes.length > 0;
+      if (!myQuotes.length) return;
+
+      myQuotes.forEach(function(q) {
+        var card = document.createElement('div');
+        card.className = 'deal-card';
+
+        var top = document.createElement('div');
+        top.className = 'deal-card__top';
+
+        var refWrap = document.createElement('div');
+        var ref = document.createElement('span');
+        ref.className = 'deal-card__ref';
+        ref.textContent = q.rfqId;
+        var posted = document.createElement('span');
+        posted.className = 'deal-card__posted';
+        posted.textContent = q.quoteId + ' · ' + (q.submittedAt || '—');
+        refWrap.appendChild(ref);
+        refWrap.appendChild(posted);
+        top.appendChild(refWrap);
+
+        var pill = document.createElement('span');
+        pill.className = 'status-pill status-pill--' + quoteStageClass(q.status);
+        pill.textContent = q.status || 'Submitted';
+        top.appendChild(pill);
+        card.appendChild(top);
+
+        var route = document.createElement('div');
+        route.className = 'deal-card__route';
+        route.textContent = (q.origin || '—') + ' → ' + (q.destination || '—');
+        card.appendChild(route);
+
+        var rows = document.createElement('div');
+        rows.className = 'deal-card__rows';
+        rows.appendChild(dealRow('My rate', portalINR(q.quotedPrice)));
+        rows.appendChild(dealRow('Transit', q.transitTime ? q.transitTime + ' days' : '—'));
+        rows.appendChild(dealRow('Cargo', q.cargoCategory));
+        rows.appendChild(dealRow('Shipment Type', q.shipmentType));
+        if (q.payment) rows.appendChild(dealRow('Commission', portalINR(q.payment.amount)));
+        card.appendChild(rows);
+
+        card.appendChild(paymentBlock(q));
+        myqList.appendChild(card);
+      });
+    }
+
+    function paymentBlock(q) {
+      var wrap = document.createElement('div');
+      wrap.className = 'deal-card__pay';
+
+      if (q.manufacturer) {
+        var title = document.createElement('div');
+        title.className = 'deal-card__unlocked';
+        title.textContent = 'Deal unlocked — shipper details';
+        wrap.appendChild(title);
+
+        var rows = document.createElement('div');
+        rows.className = 'deal-card__rows';
+        rows.appendChild(dealRow('Company', q.manufacturer.company));
+        rows.appendChild(dealRow('Contact', q.manufacturer.contactName));
+        rows.appendChild(dealRow('Commodity', q.manufacturer.commodity));
+        wrap.appendChild(rows);
+
+        if (q.manufacturer.email) {
+          var mail = document.createElement('a');
+          mail.className = 'deal-card__btn';
+          mail.href = 'mailto:' + q.manufacturer.email;
+          mail.textContent = 'Email ' + q.manufacturer.email;
+          wrap.appendChild(mail);
+        }
+        if (q.manufacturer.phone) {
+          var tel = document.createElement('a');
+          tel.className = 'deal-card__btn deal-card__btn--ghost';
+          tel.href = 'tel:' + String(q.manufacturer.phone).replace(/\s/g, '');
+          tel.textContent = 'Call ' + q.manufacturer.phone;
+          wrap.appendChild(tel);
+        }
+        return wrap;
+      }
+
+      var status = q.payment ? String(q.payment.status).trim() : '';
+
+      if (q.payment && q.payment.link && status === 'Pending') {
+        var note = document.createElement('div');
+        note.className = 'deal-card__anon';
+        note.textContent = 'Settle ' + portalINR(q.payment.amount) + ' commission to unlock the shipper.';
+        wrap.appendChild(note);
+
+        var pay = document.createElement('a');
+        pay.className = 'deal-card__btn';
+        pay.href = q.payment.link;
+        pay.target = '_blank';
+        pay.rel = 'noopener';
+        pay.textContent = 'Pay Commission';
+        wrap.appendChild(pay);
+
+        var refresh = document.createElement('button');
+        refresh.type = 'button';
+        refresh.className = 'deal-card__btn deal-card__btn--ghost';
+        refresh.textContent = 'I have paid — refresh';
+        refresh.addEventListener('click', loadMyQuotes);
+        wrap.appendChild(refresh);
+        return wrap;
+      }
+
+      if (q.payment) {
+        var pendingNote = document.createElement('div');
+        pendingNote.className = 'deal-card__anon';
+        pendingNote.textContent = 'Commission ' + portalINR(q.payment.amount) + ' · ' + (status || 'pending') +
+          '. Our team will be in touch.';
+        wrap.appendChild(pendingNote);
+        return wrap;
+      }
+
+      var waiting = document.createElement('div');
+      waiting.className = 'deal-card__anon';
+      waiting.textContent = 'Under review. If your rate is shortlisted we will raise the commission here and share the shipper details once it is settled.';
+      wrap.appendChild(waiting);
+
+      return wrap;
     }
 
     function renderDeals() {
@@ -1951,9 +2794,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
       portalBusy(coloaderQuoteForm, true, 'Submitting…');
 
-      portalApi({
+      portalApiAuth({
         type: 'coloader-quote',
-        token: dealsSession.token,
         rfqId: quoteTarget.rfqId,
         quotedPrice: String(price),
         transitTime: document.getElementById('qf-transit').value.trim(),
@@ -1970,6 +2812,7 @@ document.addEventListener('DOMContentLoaded', () => {
         closeQuoteForm();
         dealsShowNotice('Quotation ' + res.quoteId + ' submitted. We will contact you if you are shortlisted.', 'info');
         loadDeals();
+        loadMyQuotes();
       }).catch(function() {
         portalBusy(coloaderQuoteForm, false);
         portalShowMsg(quoteMsg, 'The service is not reachable right now. Please try again.', 'error');
@@ -1977,7 +2820,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loadDeals() {
-      portalApi({ type: 'coloader-deals', token: dealsSession.token }).then(function(res) {
+      portalApiAuth({ type: 'coloader-deals' }).then(function(res) {
         if (!res || res.status !== 'success') {
           dealsGuardMsg.textContent = (res && res.message) || 'Your session is no longer valid. Please sign in again.';
           dealsGuardLink.style.display = '';
@@ -2012,13 +2855,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
     dealsSearch.addEventListener('input', renderDeals);
     dealsFilter.addEventListener('change', renderDeals);
-    document.getElementById('deals-refresh').addEventListener('click', loadDeals);
+    document.getElementById('deals-refresh').addEventListener('click', function() {
+      loadDeals();
+      loadMyQuotes();
+    });
     document.getElementById('deals-logout').addEventListener('click', function() {
       portalClearSession();
       window.location.href = 'login.html';
     });
 
+    portalGuardSession(document.getElementById('deals-session-timer'));
     loadDeals();
+    loadMyQuotes();
   }
 
   // ─── 14. Sample Booking Generator (layout preview only) ────

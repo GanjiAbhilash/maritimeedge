@@ -61,6 +61,7 @@
             </div>
           </div>
           <div class="dash__actions">
+            <span class="session-timer" id="dash-session-timer" role="status" aria-live="polite" hidden></span>
             <button type="button" class="btn btn--primary btn--sm" id="dash-new-req" style="display:none;">+ New Requirement</button>
             <button type="button" class="btn btn--outline btn--sm" id="dash-export" style="display:none;">Download Report</button>
             <button type="button" class="btn btn--outline btn--sm" id="dash-refresh">Refresh</button>
@@ -98,15 +99,66 @@
           </div>
         </div>
 
+        <section class="ops" id="enq-panel" hidden>
+          <div class="ops__head">
+            <div>
+              <h2 class="ops__title">My Enquiries</h2>
+              <p class="ops__note">Every requirement you have raised, from quotation stage through to the awarded partner.</p>
+            </div>
+            <button type="button" class="btn btn--outline btn--sm" id="enq-refresh">Refresh</button>
+          </div>
+          <div id="enq-list" class="ops__list"></div>
+        </section>
+
         <section class="ops" id="ops-panel" hidden>
           <div class="ops__head">
             <div>
               <h2 class="ops__title">RFQs awaiting a job</h2>
-              <p class="ops__note">Operations only. Payments, partner selection and customer-detail release stay in the Apps Script panel.</p>
+              <p class="ops__note">Assign a vehicle and driver. Quotations, commission and deal release are in the Marketplace Console below.</p>
             </div>
             <button type="button" class="btn btn--outline btn--sm" id="ops-refresh">Refresh queue</button>
           </div>
           <div id="ops-list" class="ops__list"></div>
+        </section>
+
+        <section class="ops" id="mkt-panel" hidden>
+          <div class="ops__head">
+            <div>
+              <h2 class="ops__title">Marketplace Console</h2>
+              <p class="ops__note">Approve enquiries, compare quotations, raise the commission and release the deal.</p>
+            </div>
+            <button type="button" class="btn btn--outline btn--sm" id="mkt-refresh">Refresh</button>
+          </div>
+
+          <div class="mkt__tabs" role="tablist" aria-label="Marketplace sections">
+            <button type="button" class="mkt__tab mkt__tab--active" data-mkt-tab="approvals" role="tab" aria-selected="true">Approvals</button>
+            <button type="button" class="mkt__tab" data-mkt-tab="quotes" role="tab" aria-selected="false">Quotations</button>
+            <button type="button" class="mkt__tab" data-mkt-tab="payments" role="tab" aria-selected="false">Payments &amp; Deals</button>
+          </div>
+
+          <div id="mkt-msg"></div>
+
+          <div class="mkt__panel" id="mkt-panel-approvals">
+            <div id="mkt-approvals" class="ops__list"></div>
+          </div>
+
+          <div class="mkt__panel" id="mkt-panel-quotes" hidden>
+            <div class="dash__toolbar">
+              <label class="form__label" for="mkt-quote-rfq" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;">Choose an enquiry</label>
+              <select class="dash__select" id="mkt-quote-rfq">
+                <option value="">Select an enquiry…</option>
+              </select>
+              <span class="dash__count" id="mkt-quote-count">0 quotations</span>
+            </div>
+            <div id="mkt-quotes"></div>
+          </div>
+
+          <div class="mkt__panel" id="mkt-panel-payments" hidden>
+            <div class="detail-block__title">Commission payments</div>
+            <div id="mkt-payments"></div>
+            <div class="detail-block__title" style="margin-top:24px;">Closed deals</div>
+            <div id="mkt-deals"></div>
+          </div>
         </section>
 
         <div class="dash__panel">
@@ -381,6 +433,50 @@
 
           <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;margin-top:8px;" id="rq-submit">Submit Requirement</button>
           <p class="auth__msg" id="rq-msg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="approve-modal" role="dialog" aria-modal="true" aria-labelledby="approve-modal-title" hidden>
+    <div class="modal__card" style="max-width:620px;">
+      <div class="modal__head">
+        <div>
+          <div class="modal__title" id="approve-modal-title">Approve Enquiry</div>
+          <div class="modal__subtitle" id="approve-modal-subtitle"></div>
+        </div>
+        <button type="button" class="modal__close" id="approve-modal-close" aria-label="Close approval form">&#10005;</button>
+      </div>
+      <div class="modal__body">
+        <div class="notice notice--info">Approving publishes this enquiry to the co-loader deals board. Tick partners below to also email them an anonymised quote link.</div>
+        <div class="form__group">
+          <label class="form__label">Invite partners directly (optional)</label>
+          <div id="approve-partners" class="check-list"></div>
+        </div>
+        <button type="button" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;" id="approve-submit">Approve &amp; Publish</button>
+        <p class="auth__msg" id="approve-msg" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="reauth-modal" role="dialog" aria-modal="true" aria-labelledby="reauth-modal-title" hidden>
+    <div class="modal__card" style="max-width:460px;">
+      <div class="modal__head">
+        <div>
+          <div class="modal__title" id="reauth-modal-title">Session Expiring</div>
+          <div class="modal__subtitle">Re-enter your password to carry on without losing this page.</div>
+        </div>
+        <button type="button" class="modal__close" id="reauth-modal-close" aria-label="Dismiss">&#10005;</button>
+      </div>
+      <div class="modal__body">
+        <form class="form" id="reauth-form" novalidate>
+          <div class="form__group">
+            <label class="form__label" for="reauth-password">Password</label>
+            <input type="password" class="form__input" id="reauth-password" autocomplete="current-password" required>
+            <p class="auth__hint" id="reauth-email"></p>
+          </div>
+          <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;">Stay Signed In</button>
+          <p class="auth__msg" id="reauth-msg" role="status" aria-live="polite"></p>
         </form>
       </div>
     </div>

@@ -2947,6 +2947,219 @@ ul {
   text-align: center;
 }
 
+/* Anchors reuse the button styling for payment and contact actions. */
+a.deal-card__btn,
+a.ops-card__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  padding: 0 14px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.deal-card__btn--ghost {
+  margin-top: 10px;
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.deal-card__btn--ghost:hover {
+  background: var(--bg-alt);
+}
+
+.deal-card__pay {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+}
+
+.deal-card__unlocked {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #065F46;
+  background: var(--success-light);
+  border-radius: 10px;
+  padding: 9px 12px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+/* ========== Marketplace console (admin dashboard) ========== */
+.session-timer {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  min-height: 36px;
+  border-radius: 999px;
+  background: var(--bg-alt);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.session-timer--warn {
+  background: #FEF3C7;
+  border-color: var(--gold);
+  color: #92400E;
+}
+
+.session-timer--expired {
+  background: #FEE2E2;
+  border-color: #EF4444;
+  color: #991B1B;
+}
+
+/* Explicit display values would otherwise beat the UA rule for [hidden]. */
+.session-timer[hidden],
+.mkt__panel[hidden] {
+  display: none;
+}
+
+.mkt__tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.mkt__tab {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border-color var(--transition);
+}
+
+.mkt__tab:hover {
+  border-color: var(--accent);
+  color: var(--primary);
+}
+
+.mkt__tab--active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.mkt__panel {
+  display: grid;
+  gap: 14px;
+}
+
+.quote-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: var(--bg-alt);
+}
+
+.quote-card--best {
+  border-color: var(--success);
+  background: var(--success-light);
+}
+
+.quote-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.quote-card__name {
+  font-weight: 700;
+  color: var(--primary);
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.quote-card__price {
+  font-weight: 800;
+  color: var(--text);
+  font-size: 1.05rem;
+  white-space: nowrap;
+}
+
+.quote-card__meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 6px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.quote-card__commission {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin-top: 8px;
+}
+
+.ops-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ops-card__actions .ops-card__btn {
+  flex: 1 1 150px;
+  width: auto;
+}
+
+.ops-card__btn--ghost {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+}
+
+.ops-card__btn--ghost:hover {
+  background: var(--bg-alt);
+}
+
+.ops-card__btn:disabled {
+  background: var(--border);
+  color: var(--text-light);
+  cursor: not-allowed;
+}
+
+.check-list {
+  display: grid;
+  gap: 6px;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.check-list__item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.check-list__item:hover {
+  background: var(--bg-alt);
+}
+
 @media (max-width: 640px) {
   .deal-grid {
     padding: 16px;

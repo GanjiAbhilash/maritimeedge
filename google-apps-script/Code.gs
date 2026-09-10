@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-10-customer-self-service-rfq';
+var SCRIPT_VERSION = '2026-09-10-marketplace-web-console';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -83,6 +83,26 @@ var RFQ_HEADERS = [
   'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity',
   'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date',
   'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'
+];
+
+var QUOTE_HEADERS = [
+  'Quote ID', 'RFQ ID', 'Partner ID', 'Company Name', 'Quoted Price (INR)',
+  'Transit Time (Days)', 'Validity (Days)', 'Breakdown', 'Notes',
+  'Submitted At', 'Status', 'Rank'
+];
+
+var PAYMENT_HEADERS = [
+  'Payment ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Partner Name',
+  'Shipment Value (INR)', 'Commission %', 'Commission Amount (INR)',
+  'Status', 'Razorpay Link ID', 'Razorpay Link URL', 'Razorpay Payment ID',
+  'Created At', 'Paid At'
+];
+
+var DEAL_HEADERS = [
+  'Deal ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Logistics Company',
+  'Manufacturer Company', 'Shipment Value (INR)', 'Commission Earned (INR)',
+  'Details Shared At', 'Manufacturer Feedback', 'Logistics Feedback',
+  'Manufacturer Rating', 'Logistics Rating', 'Deal Status'
 ];
 
 // Emails allowed to sign in through the Admin tab on login.html.
@@ -157,10 +177,26 @@ function doPost(e) {
         return handleAdminCreateJob(data);
       case 'admin-update-job':
         return handleAdminUpdateJob(data);
+      case 'admin-marketplace':
+        return handleAdminMarketplace(data);
+      case 'admin-quotes':
+        return handleAdminQuotes(data);
+      case 'admin-rfq-approve':
+        return handleAdminRfqApprove(data);
+      case 'admin-rfq-reject':
+        return handleAdminRfqReject(data);
+      case 'admin-send-payment':
+        return handleAdminSendPayment(data);
+      case 'admin-confirm-payment':
+        return handleAdminConfirmPayment(data);
+      case 'customer-rfq-status':
+        return handleCustomerRfqStatus(data);
       case 'coloader-deals':
         return handleColoaderDeals(data);
       case 'coloader-quote':
         return handleColoaderQuote(data);
+      case 'coloader-my-quotes':
+        return handleColoaderMyQuotes(data);
       default:
         return jsonResponse({ status: 'error', message: 'Unknown type: ' + data.type });
     }
@@ -276,10 +312,52 @@ function findRowNumberByColumn(sheet, colIndex, value) {
 }
 
 function getPartnerName(partnerId) {
-  var sheet = getSheet(TABS.PARTNERS);
-  if (!sheet) return 'Unknown';
-  var row = findRowByColumn(sheet, 1, partnerId);
-  return row ? row[1] : 'Unknown';
+  var partner = portalResolvePartner(partnerId);
+  return partner ? partner.companyName : 'Unknown';
+}
+
+// A quote's Partner ID is either a Logistics Partners row (partners invited by
+// email) or a Registrations row (co-loaders quoting from the portal). Payment,
+// notification and detail-release all have to work for both namespaces.
+function portalResolvePartner(partnerId) {
+  var id = String(partnerId || '').trim();
+  if (!id) return null;
+
+  var partnerSheet = getSheet(TABS.PARTNERS);
+  var partnerRow = partnerSheet ? findRowByColumn(partnerSheet, 1, id) : null;
+  if (partnerRow) {
+    var p = safeRow(partnerRow);
+    return {
+      partnerId: id,
+      source: 'partner',
+      companyName: String(p[1] || ''),
+      contactName: String(p[2] || ''),
+      email: String(p[3] || '').trim(),
+      phone: String(p[4] || ''),
+      whatsapp: String(p[5] || ''),
+      telegramChatId: String(p[6] || ''),
+      rating: parseFloat(p[9]) || 0
+    };
+  }
+
+  var regSheet = getSheet(TABS.REGISTRATIONS);
+  var regRow = regSheet ? findRowByColumn(regSheet, 1, id) : null;
+  if (regRow) {
+    var r = safeRow(regRow);
+    return {
+      partnerId: id,
+      source: 'registration',
+      companyName: String(r[4] || ''),
+      contactName: String(r[4] || ''),
+      email: String(r[5] || '').trim(),
+      phone: String(r[6] || ''),
+      whatsapp: String(r[6] || ''),
+      telegramChatId: '',
+      rating: 0
+    };
+  }
+
+  return null;
 }
 
 function updateRFQStatus(rfqId, status) {
@@ -1029,6 +1107,7 @@ function portalBuildRfqIndex() {
       timestamp: portalDateOnly(r[2]),
       contactName: r[3],
       email: String(r[4]).trim().toLowerCase(),
+      phone: r[5],
       company: r[6],
       origin: r[7],
       destination: r[8],
@@ -1278,9 +1357,8 @@ function getJobsList() {
 
 // ─── 1F. WEBSITE ADMIN JOB OPS (doPost, token-authenticated) ─
 //
-// Deliberately limited to job operations. Payments, partner selection and
-// manufacturer-detail release stay in the Apps Script panel, so a stolen
-// browser token cannot move money or disclose PII.
+// Job operations only. The marketplace routes (approve, quotes, payment,
+// release) live in section 1F-2 and re-check the admin token separately.
 
 function portalRequireAdmin(data) {
   var session = portalVerifyToken(data && data.token);
@@ -1385,6 +1463,183 @@ function portalPickJobFields(fields, actorEmail) {
       out[key] = fields[key];
     }
   });
+  return out;
+}
+
+// ─── 1F-2. WEBSITE ADMIN MARKETPLACE (doPost, token-authenticated) ─
+//
+// Approve → compare quotes → raise commission → confirm → release. Every route
+// re-checks the admin token; manufacturer contact details are never returned
+// here, they are emailed by releaseManufacturerDetails() after payment.
+
+function handleAdminMarketplace(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  return jsonResponse({
+    status: 'success',
+    expiresAt: auth.session.expiresAt,
+    commissionPercent: getConfig().COMMISSION_PERCENT,
+    rfqs: portalRfqListCore(),
+    partners: portalPartnersListCore(),
+    payments: portalPaymentsListCore(),
+    deals: portalDealsListCore()
+  });
+}
+
+function handleAdminQuotes(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var rfqId = String(data.rfqId || '').trim();
+  if (!rfqId) return jsonResponse({ status: 'error', message: 'Missing RFQ reference.' });
+
+  return jsonResponse({ status: 'success', rfqId: rfqId, quotes: portalQuotesForRfqCore(rfqId) });
+}
+
+function handleAdminRfqApprove(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = portalApproveRfqCore(data.rfqId, data.partnerIds || [], auth.session.email);
+  if (result.error) return jsonResponse({ status: 'error', message: result.error });
+
+  return jsonResponse({
+    status: 'success',
+    sentCount: result.sentCount,
+    message: 'RFQ approved and live on the deals board.'
+  });
+}
+
+function handleAdminRfqReject(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = portalRejectRfqCore(data.rfqId, data.reason, auth.session.email);
+  if (result.error) return jsonResponse({ status: 'error', message: result.error });
+
+  return jsonResponse({ status: 'success', message: 'RFQ rejected.' });
+}
+
+function handleAdminSendPayment(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = portalSendPaymentRequestCore(data.quoteId, data.rfqId, 'admin');
+  if (result.error) {
+    return jsonResponse({ status: 'error', message: result.error, paymentId: result.paymentId || '' });
+  }
+
+  return jsonResponse({
+    status: 'success',
+    paymentId: result.paymentId,
+    amount: result.amount,
+    link: result.link,
+    manual: !!result.manual,
+    message: result.manual
+      ? 'Payment recorded, but Razorpay was unavailable. Collect offline and use Mark as Received.'
+      : 'Commission link sent to the partner.'
+  });
+}
+
+function handleAdminConfirmPayment(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var result = processPaymentConfirmation(String(data.paymentId || '').trim(), 'Manual (' + auth.session.email + ')');
+  if (result.error) return jsonResponse({ status: 'error', message: result.error });
+
+  return jsonResponse({
+    status: 'success',
+    warning: result.warning || '',
+    message: 'Payment confirmed \u2014 manufacturer details released and deal closed.'
+  });
+}
+
+// ─── 1F-3. CUSTOMER ENQUIRY PIPELINE (doPost, token-authenticated) ─
+
+function handleCustomerRfqStatus(data) {
+  var session = portalVerifyToken(data.token);
+  if (!session) {
+    return jsonResponse({ status: 'error', message: 'Your session has expired. Please sign in again.' });
+  }
+  if (session.role === 'admin') {
+    return jsonResponse({ status: 'success', rfqs: [] });
+  }
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'success', rfqs: [] });
+  }
+
+  var quoteCounts = portalQuoteCountsByRfq();
+  var deals = portalDealsByRfq();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, RFQ_HEADERS.length).getValues();
+  var out = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0]) continue;
+    if (String(r[4]).trim().toLowerCase() !== session.email) continue;
+
+    var key = String(r[0]).trim().toUpperCase();
+    var deal = deals[key];
+    var closed = String(r[1]).trim() === 'Closed';
+
+    out.push({
+      rfqId: r[0],
+      status: r[1],
+      raisedAt: portalDateOnly(r[2]),
+      origin: r[7],
+      destination: r[8],
+      shipmentType: r[9],
+      cargoWeight: r[10],
+      commodity: r[11],
+      containerCount: r[13],
+      incoterm: r[14],
+      readyDate: portalDateOnly(r[15]),
+      quoteCount: quoteCounts[key] || 0,
+      // The winning partner is named only once the deal is closed.
+      matchedPartner: (closed && deal) ? deal.logisticsCompany : '',
+      dealId: (closed && deal) ? deal.dealId : ''
+    });
+  }
+
+  out.reverse();
+  return jsonResponse({ status: 'success', rfqs: out });
+}
+
+function portalDealsByRfq() {
+  var sheet = getSheet(TABS.DEALS);
+  var out = {};
+  if (!sheet || sheet.getLastRow() <= 1) return out;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, DEAL_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[1]) continue;
+    out[String(r[1]).trim().toUpperCase()] = {
+      dealId: r[0], logisticsCompany: r[4], dealStatus: r[13]
+    };
+  }
+  return out;
+}
+
+function portalPaymentsByQuote(partnerId) {
+  var sheet = getSheet(TABS.PAYMENTS);
+  var out = {};
+  if (!sheet || sheet.getLastRow() <= 1) return out;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, PAYMENT_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (partnerId && String(r[3]).trim() !== String(partnerId).trim()) continue;
+    out[String(r[2]).trim()] = {
+      paymentId: r[0], rfqId: r[1], quoteId: r[2],
+      commissionAmount: r[7], status: r[8], linkUrl: r[10],
+      paidAt: portalDateOnly(r[13])
+    };
+  }
   return out;
 }
 
@@ -1515,12 +1770,7 @@ function handleColoaderQuote(data) {
     return jsonResponse({ status: 'error', message: 'This deal is no longer accepting quotes.' });
   }
 
-  var quotesHeaders = [
-    'Quote ID', 'RFQ ID', 'Partner ID', 'Company Name', 'Quoted Price (INR)',
-    'Transit Time (Days)', 'Validity (Days)', 'Breakdown', 'Notes',
-    'Submitted At', 'Status', 'Rank'
-  ];
-  var quotesSheet = getOrCreateSheet(TABS.QUOTES, quotesHeaders);
+  var quotesSheet = getOrCreateSheet(TABS.QUOTES, QUOTE_HEADERS);
   var partnerId = auth.registration.regId;
 
   if (hasDuplicateQuote(quotesSheet, rfqId, partnerId)) {
@@ -1551,6 +1801,67 @@ function handleColoaderQuote(data) {
   );
 
   return jsonResponse({ status: 'success', quoteId: quoteId, message: 'Quotation submitted.' });
+}
+
+// Quotes this co-loader has placed, with commission state. Manufacturer contact
+// is attached only when the matching payment has reached 'Paid', which happens
+// after an admin release — never on the strength of payment alone.
+function handleColoaderMyQuotes(data) {
+  var auth = portalRequireColoader(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var partnerId = auth.registration.regId;
+  var quotesSheet = getSheet(TABS.QUOTES);
+  var commissionPercent = getConfig().COMMISSION_PERCENT;
+
+  if (!quotesSheet || quotesSheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'success', quotes: [], commissionPercent: commissionPercent });
+  }
+
+  var rfqIndex = portalBuildRfqIndex();
+  var payments = portalPaymentsByQuote(partnerId);
+  var values = quotesSheet.getRange(2, 1, quotesSheet.getLastRow() - 1, QUOTE_HEADERS.length).getValues();
+  var out = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0] || String(r[2]).trim() !== partnerId) continue;
+
+    var rfq = rfqIndex[String(r[1]).trim().toUpperCase()] || {};
+    var pay = payments[String(r[0]).trim()] || null;
+    var unlocked = !!pay && String(pay.status).trim() === 'Paid';
+
+    out.push({
+      quoteId: r[0],
+      rfqId: r[1],
+      quotedPrice: r[4],
+      transitTime: r[5],
+      validity: r[6],
+      submittedAt: portalDateOnly(r[9]),
+      status: r[10],
+      origin: rfq.origin || '',
+      destination: rfq.destination || '',
+      shipmentType: rfq.shipmentType || '',
+      cargoCategory: anonymizeCargo(rfq.commodity || ''),
+      payment: pay ? {
+        paymentId: pay.paymentId,
+        amount: pay.commissionAmount,
+        status: pay.status,
+        link: pay.linkUrl,
+        paidAt: pay.paidAt
+      } : null,
+      manufacturer: unlocked ? {
+        company: rfq.company || '',
+        contactName: rfq.contactName || '',
+        email: rfq.email || '',
+        phone: rfq.phone || '',
+        commodity: rfq.commodity || ''
+      } : null
+    });
+  }
+
+  out.reverse();
+  return jsonResponse({ status: 'success', quotes: out, commissionPercent: commissionPercent });
 }
 
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────
@@ -1666,12 +1977,7 @@ function handleQuote(data) {
     return jsonResponse({ status: 'error', message: 'RFQ is not accepting quotes' });
   }
 
-  var quotesHeaders = [
-    'Quote ID', 'RFQ ID', 'Partner ID', 'Company Name', 'Quoted Price (INR)',
-    'Transit Time (Days)', 'Validity (Days)', 'Breakdown', 'Notes',
-    'Submitted At', 'Status', 'Rank'
-  ];
-  var quotesSheet = getOrCreateSheet(TABS.QUOTES, quotesHeaders);
+  var quotesSheet = getOrCreateSheet(TABS.QUOTES, QUOTE_HEADERS);
 
   if (hasDuplicateQuote(quotesSheet, data.rfqId, data.partnerId)) {
     return jsonResponse({ status: 'error', message: 'You have already submitted a quote for this RFQ' });
@@ -1745,12 +2051,8 @@ function sendTelegram(chatId, message) {
 }
 
 function sendTelegramToPartner(partnerId, message) {
-  var sheet = getSheet(TABS.PARTNERS);
-  if (!sheet) return;
-  var row = findRowByColumn(sheet, 1, partnerId);
-  if (!row) return;
-  var chatId = row[6]; // Column G = Telegram Chat ID
-  if (chatId) sendTelegram(chatId, message);
+  var partner = portalResolvePartner(partnerId);
+  if (partner && partner.telegramChatId) sendTelegram(partner.telegramChatId, message);
 }
 
 // ─── 5. ADMIN PANEL FUNCTIONS (called via google.script.run) ─
@@ -1813,10 +2115,16 @@ function getDashboardStats() {
 
 function getRFQList() {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalRfqListCore();
+}
+
+function portalRfqListCore() {
   var sheet = getSheet(TABS.RFQ);
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
+  var quoteCounts = portalQuoteCountsByRfq();
   var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
+
   return data.map(function(row) {
     var r = safeRow(row);
     return {
@@ -1826,35 +2134,82 @@ function getRFQList() {
       commodity: r[11], shipmentValue: r[12], containerCount: r[13],
       incoterm: r[14], readyDate: r[15], deliveryDate: r[16],
       message: r[17], assignedPartners: r[18], approvedBy: r[19],
-      approvedAt: r[20], notes: r[21]
+      approvedAt: r[20], notes: r[21],
+      quoteCount: quoteCounts[String(r[0]).trim().toUpperCase()] || 0
     };
   }).reverse();
 }
 
+function portalQuoteCountsByRfq() {
+  var sheet = getSheet(TABS.QUOTES);
+  var counts = {};
+  if (!sheet || sheet.getLastRow() <= 1) return counts;
+
+  var values = sheet.getRange(2, 2, sheet.getLastRow() - 1, 1).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var key = String(values[i][0] || '').trim().toUpperCase();
+    if (key) counts[key] = (counts[key] || 0) + 1;
+  }
+  return counts;
+}
+
 function getPartnersList() {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
-  var sheet = getSheet(TABS.PARTNERS);
-  if (!sheet || sheet.getLastRow() <= 1) return [];
+  return portalPartnersListCore();
+}
 
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues().map(function(row) {
-    var r = safeRow(row);
-    return {
-      partnerId: r[0], companyName: r[1], contactPerson: r[2],
-      email: r[3], phone: r[4], whatsapp: r[5], telegramChatId: r[6],
-      categories: r[7], portsCovered: r[8], rating: r[9], status: r[10]
-    };
-  });
+// Both namespaces are offered for approval fan-out: invited logistics partners
+// and paid co-loader registrations.
+function portalPartnersListCore() {
+  var out = [];
+
+  var sheet = getSheet(TABS.PARTNERS);
+  if (sheet && sheet.getLastRow() > 1) {
+    sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues().forEach(function(row) {
+      var r = safeRow(row);
+      if (!r[0]) return;
+      out.push({
+        partnerId: r[0], companyName: r[1], contactPerson: r[2],
+        email: r[3], phone: r[4], whatsapp: r[5], telegramChatId: r[6],
+        categories: r[7], portsCovered: r[8], rating: r[9], status: r[10],
+        source: 'partner'
+      });
+    });
+  }
+
+  var regSheet = getSheet(TABS.REGISTRATIONS);
+  if (regSheet && regSheet.getLastRow() > 1 && regSheet.getLastColumn() >= 13) {
+    regSheet.getRange(2, 1, regSheet.getLastRow() - 1, 13).getValues().forEach(function(row) {
+      var r = safeRow(row);
+      if (!r[0]) return;
+      if (PORTAL_PAID_STATUSES.indexOf(String(r[12] || '').trim().toLowerCase()) < 0) return;
+      out.push({
+        partnerId: r[0], companyName: r[4], contactPerson: r[4],
+        email: r[5], phone: r[6], whatsapp: r[6], telegramChatId: '',
+        categories: r[2], portsCovered: r[9], rating: '', status: 'Active',
+        source: 'registration'
+      });
+    });
+  }
+
+  return out;
 }
 
 function approveRFQ(rfqId, partnerIds, approvedBy) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalApproveRfqCore(rfqId, partnerIds, approvedBy);
+}
 
-  var config = getConfig();
+function portalApproveRfqCore(rfqId, partnerIds, approvedBy) {
   var sheet = getSheet(TABS.RFQ);
   if (!sheet) return { error: 'RFQ sheet not found' };
 
+  rfqId = String(rfqId || '').trim();
+  partnerIds = (partnerIds || []).map(function(id) { return String(id || '').trim(); })
+    .filter(function(id) { return !!id; });
+
   var rowNum = findRowNumberByColumn(sheet, 1, rfqId);
-  if (rowNum < 0) return { error: 'RFQ not found' };
+  if (rowNum < 0) return { error: 'RFQ ' + rfqId + ' not found' };
 
   sheet.getRange(rowNum, 2).setValue('Approved');
   sheet.getRange(rowNum, 19).setValue(partnerIds.join(', '));
@@ -1877,7 +2232,8 @@ function approveRFQ(rfqId, partnerIds, approvedBy) {
   });
 
   sendTelegramToAdmin(
-    '\u2705 *RFQ Approved*\n\n*ID:* ' + rfqId + '\n*Sent to:* ' + sentCount + ' partners\n*Partners:* ' + partnerIds.join(', ') +
+    '\u2705 *RFQ Approved*\n\n*ID:* ' + rfqId + '\n*Sent to:* ' + sentCount + ' partners' +
+    (partnerIds.length ? '\n*Partners:* ' + partnerIds.join(', ') : '\n*Open to all co-loaders*') +
     '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
@@ -1886,17 +2242,14 @@ function approveRFQ(rfqId, partnerIds, approvedBy) {
 
 function sendAnonymizedRFQToPartner(partnerId, rfqData) {
   var config = getConfig();
-  var partnerSheet = getSheet(TABS.PARTNERS);
-  if (!partnerSheet) return { sent: false };
+  var partner = portalResolvePartner(partnerId);
+  if (!partner) return { sent: false };
 
-  var partnerRow = findRowByColumn(partnerSheet, 1, partnerId);
-  if (!partnerRow) return { sent: false };
-
-  var partnerName = partnerRow[1];
-  var partnerEmail = partnerRow[3];
-  var partnerPhone = partnerRow[4];
-  var partnerWhatsapp = partnerRow[5];
-  var partnerTelegram = partnerRow[6];
+  var partnerName = partner.companyName;
+  var partnerEmail = partner.email;
+  var partnerPhone = partner.phone;
+  var partnerWhatsapp = partner.whatsapp;
+  var partnerTelegram = partner.telegramChatId;
 
   var token = generateToken(partnerId, rfqData.rfqId);
   var genericCargo = anonymizeCargo(rfqData.commodity);
@@ -2005,13 +2358,24 @@ function buildAnonymizedRFQEmail(rfqData, genericCargo, originRegion, quoteUrl, 
 
 function rejectRFQ(rfqId, reason) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalRejectRfqCore(rfqId, reason, 'Admin');
+}
+
+function portalRejectRfqCore(rfqId, reason, actorEmail) {
   var sheet = getSheet(TABS.RFQ);
   if (!sheet) return { error: 'RFQ sheet not found' };
+
+  rfqId = String(rfqId || '').trim();
   var rowNum = findRowNumberByColumn(sheet, 1, rfqId);
-  if (rowNum < 0) return { error: 'RFQ not found' };
+  if (rowNum < 0) return { error: 'RFQ ' + rfqId + ' not found' };
+
   sheet.getRange(rowNum, 2).setValue('Rejected');
-  sheet.getRange(rowNum, 22).setValue(reason || 'Rejected by admin');
-  sendTelegramToAdmin('\u274C *RFQ Rejected*\n*ID:* ' + rfqId + '\n*Reason:* ' + (reason || 'No reason'));
+  sheet.getRange(rowNum, 22).setValue(portalTrim(reason, 500) || 'Rejected by admin');
+
+  sendTelegramToAdmin(
+    '\u274C *RFQ Rejected*\n*ID:* ' + rfqId + '\n*By:* ' + (actorEmail || 'Admin') +
+    '\n*Reason:* ' + (reason || 'No reason')
+  );
   return { success: true };
 }
 
@@ -2019,21 +2383,33 @@ function rejectRFQ(rfqId, reason) {
 
 function getQuotesForRFQ(rfqId) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalQuotesForRfqCore(rfqId);
+}
+
+function portalQuotesForRfqCore(rfqId) {
   var sheet = getSheet(TABS.QUOTES);
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
+  rfqId = String(rfqId || '').trim();
   var data = sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues();
-  var partnersSheet = getSheet(TABS.PARTNERS);
 
-  var quotes = data.filter(function(row) { return row[1] === rfqId; })
+  // Built once: resolving each partner individually would rescan two tabs per quote.
+  var partnerIndex = {};
+  portalPartnersListCore().forEach(function(p) {
+    partnerIndex[String(p.partnerId).trim()] = p;
+  });
+
+  var quotes = data.filter(function(row) { return String(row[1]).trim() === rfqId; })
     .map(function(row) {
       var r = safeRow(row);
-      var pRow = partnersSheet ? findRowByColumn(partnersSheet, 1, r[2]) : null;
+      var partner = partnerIndex[String(r[2]).trim()];
       return {
-        quoteId: r[0], rfqId: r[1], partnerId: r[2], companyName: r[3],
-        quotedPrice: parseFloat(r[4]) || 0, transitTime: parseInt(r[5]) || 0,
+        quoteId: r[0], rfqId: r[1], partnerId: r[2], companyName: r[3] || (partner ? partner.companyName : ''),
+        quotedPrice: parseFloat(r[4]) || 0, transitTime: parseInt(r[5], 10) || 0,
         validity: r[6], breakdown: r[7], notes: r[8], submittedAt: r[9],
-        status: r[10], rank: r[11], partnerRating: pRow ? pRow[9] : 0
+        status: r[10], rank: r[11],
+        partnerRating: partner ? (parseFloat(partner.rating) || 0) : 0,
+        partnerSource: partner ? partner.source : 'unknown'
       };
     });
 
@@ -2051,49 +2427,83 @@ function getQuotesForRFQ(rfqId) {
 
 function sendPaymentRequest(quoteId, rfqId) {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalSendPaymentRequestCore(quoteId, rfqId);
+}
+
+// One live payment per quote, so a double click cannot bill a partner twice.
+function portalFindPaymentByQuote(quoteId) {
+  var sheet = getSheet(TABS.PAYMENTS);
+  if (!sheet || sheet.getLastRow() <= 1) return null;
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, PAYMENT_HEADERS.length).getValues();
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (String(r[2]).trim() !== String(quoteId).trim()) continue;
+    return {
+      paymentId: r[0], rfqId: r[1], quoteId: r[2], partnerId: r[3],
+      commissionAmount: r[7], status: r[8], linkId: r[9], linkUrl: r[10],
+      createdAt: r[12], paidAt: r[13], rowNum: i + 2
+    };
+  }
+  return null;
+}
+
+// Callers authenticate first.
+function portalSendPaymentRequestCore(quoteId, rfqId) {
   var config = getConfig();
+  quoteId = String(quoteId || '').trim();
+  rfqId = String(rfqId || '').trim();
 
   var rfqSheet = getSheet(TABS.RFQ);
-  var rfqRow = findRowByColumn(rfqSheet, 1, rfqId);
-  if (!rfqRow) return { error: 'RFQ not found' };
+  var rfqRow = rfqSheet ? findRowByColumn(rfqSheet, 1, rfqId) : null;
+  if (!rfqRow) return { error: 'RFQ ' + rfqId + ' not found' };
   var shipmentValue = parseFloat(rfqRow[12]) || 0;
 
   var quotesSheet = getSheet(TABS.QUOTES);
-  var quoteRow = findRowByColumn(quotesSheet, 1, quoteId);
-  if (!quoteRow) return { error: 'Quote not found' };
-  var partnerId = quoteRow[2];
-  var partnerName = quoteRow[3];
+  var quoteRow = quotesSheet ? findRowByColumn(quotesSheet, 1, quoteId) : null;
+  if (!quoteRow) return { error: 'Quote ' + quoteId + ' not found' };
+  if (String(quoteRow[1]).trim() !== rfqId) {
+    return { error: 'Quote ' + quoteId + ' does not belong to ' + rfqId + '.' };
+  }
+
+  var partnerId = String(quoteRow[2]).trim();
   var quotedPrice = parseFloat(quoteRow[4]) || 0;
+
+  var existing = portalFindPaymentByQuote(quoteId);
+  if (existing) {
+    return {
+      error: 'A payment (' + existing.paymentId + ') already exists for this quote with status "' + existing.status + '".',
+      paymentId: existing.paymentId,
+      link: existing.linkUrl
+    };
+  }
+
+  var partner = portalResolvePartner(partnerId);
+  if (!partner) {
+    return { error: 'Partner ' + partnerId + ' was not found in Logistics Partners or Registrations, so no payment could be raised.' };
+  }
+  var partnerName = partner.companyName || String(quoteRow[3] || '');
 
   var commissionAmount = Math.round(quotedPrice * (config.COMMISSION_PERCENT / 100));
   if (commissionAmount < 100) commissionAmount = 100;
-
-  var partnerSheet = getSheet(TABS.PARTNERS);
-  var partnerRow = findRowByColumn(partnerSheet, 1, partnerId);
-  if (!partnerRow) return { error: 'Partner not found' };
 
   var paymentLink = createRazorpayPaymentLink({
     amount: commissionAmount * 100,
     currency: 'INR',
     description: 'MaritimeEdge Commission \u2014 ' + rfqId,
-    customerName: partnerRow[2] || partnerName,
-    customerEmail: partnerRow[3],
-    customerPhone: String(partnerRow[4] || '').replace(/[^0-9]/g, ''),
+    customerName: partner.contactName || partnerName,
+    customerEmail: partner.email,
+    customerPhone: String(partner.phone || '').replace(/[^0-9]/g, ''),
     rfqId: rfqId, quoteId: quoteId, partnerId: partnerId
   });
 
-  // If Razorpay not configured, create a manual payment entry (admin collects payment offline)
+  // If Razorpay is unavailable, still record the payment so the admin can
+  // confirm it manually after collecting offline.
   var isManual = !!paymentLink.error;
   var linkId = isManual ? 'MANUAL' : paymentLink.linkId;
   var linkUrl = isManual ? '' : paymentLink.shortUrl;
 
-  var paymentsHeaders = [
-    'Payment ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Partner Name',
-    'Shipment Value (INR)', 'Commission %', 'Commission Amount (INR)',
-    'Status', 'Razorpay Link ID', 'Razorpay Link URL', 'Razorpay Payment ID',
-    'Created At', 'Paid At'
-  ];
-  var paymentsSheet = getOrCreateSheet(TABS.PAYMENTS, paymentsHeaders);
+  var paymentsSheet = getOrCreateSheet(TABS.PAYMENTS, PAYMENT_HEADERS);
   var paymentId = generateId('PAY-', paymentsSheet);
 
   paymentsSheet.appendRow([
@@ -2106,31 +2516,28 @@ function sendPaymentRequest(quoteId, rfqId) {
   var quoteRowNum = findRowNumberByColumn(quotesSheet, 1, quoteId);
   if (quoteRowNum > 0) quotesSheet.getRange(quoteRowNum, 11).setValue('Payment Sent');
 
-  // Email to partner
-  if (partnerRow[3]) {
-    var emailPayUrl = isManual ? '' : paymentLink.shortUrl;
-    MailApp.sendEmail({
-      to: partnerRow[3],
-      subject: 'Action Required \u2014 Commission Payment for ' + rfqId + ' | MaritimeEdge',
-      htmlBody: isManual
-        ? buildManualPaymentEmail(rfqId, partnerName, commissionAmount)
-        : buildPaymentEmail(rfqId, partnerName, commissionAmount, paymentLink.shortUrl),
-      name: 'MaritimeEdge Marketplace'
-    });
+  if (partner.email) {
+    try {
+      MailApp.sendEmail({
+        to: partner.email,
+        subject: 'Action Required \u2014 Commission Payment for ' + rfqId + ' | MaritimeEdge',
+        htmlBody: isManual
+          ? buildManualPaymentEmail(rfqId, partnerName, commissionAmount)
+          : buildPaymentEmail(rfqId, partnerName, commissionAmount, paymentLink.shortUrl),
+        name: 'MaritimeEdge Marketplace'
+      });
+    } catch (err) {
+      /* delivery is best-effort; the payment row is already written */
+    }
   }
 
-  // Telegram to partner
-  var telegramPayMsg = '\uD83D\uDCB3 *Payment Required*\n\nYour quote for *' + rfqId + '* was shortlisted! \uD83C\uDF89\n\n' +
-    '*Commission:* ' + formatINR(commissionAmount) + ' (' + config.COMMISSION_PERCENT + '% of shipment value)\n\n';
-  if (isManual) {
-    telegramPayMsg += 'Our team will contact you with payment details.';
-  } else {
-    telegramPayMsg += 'Pay to unlock details:\n' + paymentLink.shortUrl;
-  }
-  sendTelegramToPartner(partnerId, telegramPayMsg);
+  sendTelegramToPartner(partnerId,
+    '\uD83D\uDCB3 *Payment Required*\n\nYour quote for *' + rfqId + '* was shortlisted! \uD83C\uDF89\n\n' +
+    '*Commission:* ' + formatINR(commissionAmount) + ' (' + config.COMMISSION_PERCENT + '% of shipment value)\n\n' +
+    (isManual ? 'Our team will contact you with payment details.' : 'Pay to unlock details:\n' + paymentLink.shortUrl)
+  );
 
-  // WhatsApp link for admin
-  var waPhone = String(partnerRow[5] || partnerRow[4] || '').replace(/[^0-9]/g, '');
+  var waPhone = String(partner.whatsapp || partner.phone || '').replace(/[^0-9]/g, '');
   if (waPhone.length === 10) waPhone = '91' + waPhone;
   var waText = isManual
     ? 'Hi ' + partnerName + ', your quote for ' + rfqId + ' was shortlisted! Commission: ' + formatINR(commissionAmount) + '. We will share payment details shortly.'
@@ -2138,14 +2545,16 @@ function sendPaymentRequest(quoteId, rfqId) {
   var whatsappLink = waPhone ? 'https://wa.me/' + waPhone + '?text=' + encodeURIComponent(waText) : '';
 
   sendTelegramToAdmin(
-    '\uD83D\uDCB3 *Payment ' + (isManual ? 'Entry Created (Manual)' : 'Link Sent') + '*\n\n*RFQ:* ' + rfqId + '\n*Partner:* ' + partnerName +
-    '\n*Commission:* ' + formatINR(commissionAmount) + (isManual ? '\n\n\u26A0\uFE0F Razorpay not configured. Use Manual Confirm after collecting payment.' : '\n*Link:* ' + paymentLink.shortUrl) +
+    '\uD83D\uDCB3 *Payment ' + (isManual ? 'Entry Created (Manual)' : 'Link Sent') + '*\n\n' +
+    '*RFQ:* ' + rfqId + '\n*Partner:* ' + partnerName + ' (' + partnerId + ')' +
+    '\n*Commission:* ' + formatINR(commissionAmount) +
+    (isManual ? '\n\n\u26A0\uFE0F Razorpay unavailable. Use Manual Confirm after collecting payment.' : '\n*Link:* ' + linkUrl) +
     '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
   return {
     success: true, paymentId: paymentId, amount: commissionAmount,
-    link: isManual ? 'Manual — collect payment offline' : paymentLink.shortUrl,
+    link: isManual ? '' : linkUrl,
     whatsappLink: whatsappLink, manual: isManual
   };
 }
@@ -2301,7 +2710,7 @@ function processPaymentConfirmation(paymentId, confirmedBy) {
   var rowNum = findRowNumberByColumn(paymentsSheet, 1, paymentId);
   if (rowNum < 0) return { error: 'Payment not found' };
 
-  var paymentRow = paymentsSheet.getRange(rowNum, 1, 1, paymentsSheet.getLastColumn()).getValues()[0];
+  var paymentRow = paymentsSheet.getRange(rowNum, 1, 1, PAYMENT_HEADERS.length).getValues()[0];
   var rfqId = paymentRow[1], quoteId = paymentRow[2], partnerId = paymentRow[3];
   var partnerName = paymentRow[4], commissionAmount = paymentRow[7];
 
@@ -2309,41 +2718,44 @@ function processPaymentConfirmation(paymentId, confirmedBy) {
   paymentsSheet.getRange(rowNum, 14).setValue(new Date().toISOString());
 
   var quotesSheet = getSheet(TABS.QUOTES);
-  var quoteRowNum = findRowNumberByColumn(quotesSheet, 1, quoteId);
+  var quoteRowNum = quotesSheet ? findRowNumberByColumn(quotesSheet, 1, quoteId) : -1;
   if (quoteRowNum > 0) quotesSheet.getRange(quoteRowNum, 11).setValue('Paid');
 
   updateRFQStatus(rfqId, 'Paid');
-  releaseManufacturerDetails(rfqId, partnerId, partnerName);
+  var released = releaseManufacturerDetails(rfqId, partnerId, partnerName);
   createDealEntry(rfqId, quoteId, partnerId, partnerName, commissionAmount);
+  updateRFQStatus(rfqId, 'Closed');
 
   sendTelegramToAdmin(
     '\uD83C\uDF89 *Payment Confirmed!*\n\n*Payment:* ' + paymentId + '\n*RFQ:* ' + rfqId +
     '\n*Partner:* ' + partnerName + '\n*Commission:* ' + formatINR(commissionAmount) +
     '\n*Confirmed via:* ' + (confirmedBy || 'Unknown') +
-    '\n\nManufacturer details released.' +
+    (released.error
+      ? '\n\n\u26A0\uFE0F Details NOT delivered: ' + released.error + ' \u2014 contact the partner manually.'
+      : '\n\nManufacturer details released.') +
     '\n\n\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
   );
 
-  return { success: true };
+  return { success: true, warning: released.error || '' };
 }
 
 function releaseManufacturerDetails(rfqId, partnerId, partnerName) {
   var rfqSheet = getSheet(TABS.RFQ);
-  var rfqRow = findRowByColumn(rfqSheet, 1, rfqId);
-  if (!rfqRow) return;
+  var rfqRow = rfqSheet ? findRowByColumn(rfqSheet, 1, rfqId) : null;
+  if (!rfqRow) return { error: 'RFQ ' + rfqId + ' not found' };
 
   var mfgName = rfqRow[3], mfgEmail = rfqRow[4], mfgPhone = rfqRow[5];
   var mfgCompany = rfqRow[6], origin = rfqRow[7], destination = rfqRow[8];
   var shipmentType = rfqRow[9], commodity = rfqRow[11];
 
-  var partnerSheet = getSheet(TABS.PARTNERS);
-  var partnerRow = findRowByColumn(partnerSheet, 1, partnerId);
-  if (!partnerRow) return;
+  var partner = portalResolvePartner(partnerId);
+  if (!partner) return { error: 'Partner ' + partnerId + ' could not be resolved' };
+  if (!partner.email) return { error: 'Partner ' + partnerId + ' has no email address on file' };
 
   // Full details to logistics partner
-  if (partnerRow[3]) {
+  if (partner.email) {
     MailApp.sendEmail({
-      to: partnerRow[3],
+      to: partner.email,
       subject: 'Manufacturer Details Unlocked \u2014 ' + rfqId + ' | MaritimeEdge',
       htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;">' +
         '<div style="background:#10B981;color:#fff;padding:20px;text-align:center;">' +
@@ -2389,18 +2801,12 @@ function releaseManufacturerDetails(rfqId, partnerId, partnerName) {
     });
   }
 
-  updateRFQStatus(rfqId, 'Closed');
+  return { success: true };
 }
 
 function createDealEntry(rfqId, quoteId, partnerId, partnerName, commissionAmount) {
   var rfqRow = findRowByColumn(getSheet(TABS.RFQ), 1, rfqId);
-  var dealsHeaders = [
-    'Deal ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Logistics Company',
-    'Manufacturer Company', 'Shipment Value (INR)', 'Commission Earned (INR)',
-    'Details Shared At', 'Manufacturer Feedback', 'Logistics Feedback',
-    'Manufacturer Rating', 'Logistics Rating', 'Deal Status'
-  ];
-  var dealsSheet = getOrCreateSheet(TABS.DEALS, dealsHeaders);
+  var dealsSheet = getOrCreateSheet(TABS.DEALS, DEAL_HEADERS);
   var dealId = generateId('DEAL-', dealsSheet);
 
   dealsSheet.appendRow([
@@ -2414,10 +2820,14 @@ function createDealEntry(rfqId, quoteId, partnerId, partnerName, commissionAmoun
 
 function getPaymentsList() {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalPaymentsListCore();
+}
+
+function portalPaymentsListCore() {
   var sheet = getSheet(TABS.PAYMENTS);
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
-  return sheet.getRange(2, 1, sheet.getLastRow() - 1, sheet.getLastColumn()).getValues().map(function(row) {
+  return sheet.getRange(2, 1, sheet.getLastRow() - 1, PAYMENT_HEADERS.length).getValues().map(function(row) {
     var r = safeRow(row);
     return {
       paymentId: r[0], rfqId: r[1], quoteId: r[2], partnerId: r[3],
@@ -2431,6 +2841,10 @@ function getPaymentsList() {
 
 function getDealsList() {
   if (!isAdminAuthenticated()) return { error: 'Not authenticated' };
+  return portalDealsListCore();
+}
+
+function portalDealsListCore() {
   var sheet = getSheet(TABS.DEALS);
   if (!sheet || sheet.getLastRow() <= 1) return [];
 
@@ -2475,14 +2889,14 @@ function checkAndSendFeedback() {
       });
     }
 
-    var partnerRow = findRowByColumn(getSheet(TABS.PARTNERS), 1, partnerId);
-    if (partnerRow && partnerRow[3]) {
+    var partner = portalResolvePartner(partnerId);
+    if (partner && partner.email) {
       MailApp.sendEmail({
-        to: partnerRow[3],
+        to: partner.email,
         subject: 'How was the deal? \u2014 ' + rfqId + ' | MaritimeEdge',
         htmlBody: '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;">' +
           '<h2 style="color:#0A2463;">\u2693 MaritimeEdge \u2014 Feedback Request</h2>' +
-          '<p>Hi ' + partnerRow[2] + ',</p>' +
+          '<p>Hi ' + partner.contactName + ',</p>' +
           '<p>How was the deal for shipment ' + rfqId + '?</p>' +
           '<p>Please reply with: Rating (1-5), feedback, deal status (completed/in-progress/cancelled).</p></div>',
         name: 'MaritimeEdge'
@@ -2536,12 +2950,12 @@ function setupSheetTabs() {
   var config = getConfig();
   var ss = SpreadsheetApp.openById(config.SHEET_ID);
   var tabs = {
-    'Subscribers': ['Email', 'Timestamp', 'Source Page'],
-    'RFQ Submissions': ['RFQ ID', 'Status', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Company', 'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity', 'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date', 'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'],
+    'Subscribers': ['Email', 'Timestamp', 'Source Page', 'Payment Status'],
+    'RFQ Submissions': RFQ_HEADERS,
     'Logistics Partners': ['Partner ID', 'Company Name', 'Contact Person', 'Email', 'Phone', 'WhatsApp', 'Telegram Chat ID', 'Categories', 'Ports Covered', 'Rating', 'Status'],
-    'Quotes': ['Quote ID', 'RFQ ID', 'Partner ID', 'Company Name', 'Quoted Price (INR)', 'Transit Time (Days)', 'Validity (Days)', 'Breakdown', 'Notes', 'Submitted At', 'Status', 'Rank'],
-    'Payments': ['Payment ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Partner Name', 'Shipment Value (INR)', 'Commission %', 'Commission Amount (INR)', 'Status', 'Razorpay Link ID', 'Razorpay Link URL', 'Razorpay Payment ID', 'Created At', 'Paid At'],
-    'Deals': ['Deal ID', 'RFQ ID', 'Quote ID', 'Partner ID', 'Logistics Company', 'Manufacturer Company', 'Shipment Value (INR)', 'Commission Earned (INR)', 'Details Shared At', 'Manufacturer Feedback', 'Logistics Feedback', 'Manufacturer Rating', 'Logistics Rating', 'Deal Status']
+    'Quotes': QUOTE_HEADERS,
+    'Payments': PAYMENT_HEADERS,
+    'Deals': DEAL_HEADERS
   };
 
   Object.keys(tabs).forEach(function(tabName) {
