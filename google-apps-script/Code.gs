@@ -78,6 +78,13 @@ var JOB_STATUSES = [
   'In Transit', 'Gate-In ICD', 'Delivered', 'On Hold'
 ];
 
+var RFQ_HEADERS = [
+  'RFQ ID', 'Status', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Company',
+  'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity',
+  'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date',
+  'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'
+];
+
 // Emails allowed to sign in through the Admin tab on login.html.
 // Authentication still requires the ADMIN_PASSWORD script property.
 var PORTAL_ADMIN_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -91,6 +98,10 @@ var PORTAL_ADMIN_SESSION_HOURS = 2;
 // doPost is a public endpoint, so both login routes are throttled per email.
 var PORTAL_MAX_LOGIN_ATTEMPTS = 5;
 var PORTAL_LOCKOUT_MINUTES = 15;
+
+// Each self-service requirement fans out a customer email, an admin email and
+// a Telegram message, so the same account cannot flood them.
+var PORTAL_MAX_RFQ_PER_HOUR = 5;
 
 // Password reset link lifetime, and the minimum gap between two reset emails
 // to the same address.
@@ -132,6 +143,8 @@ function doPost(e) {
         return handlePortalAdminLogin(data);
       case 'customer-bookings':
         return handleCustomerBookings(data);
+      case 'customer-rfq':
+        return handleCustomerRfq(data);
       case 'password-reset-request':
         return handlePasswordResetRequest(data);
       case 'password-reset-confirm':
@@ -848,6 +861,147 @@ function handleCustomerBookings(data) {
   return jsonResponse({ status: 'success', role: session.role, membership: membership, bookings: jobs });
 }
 
+// ─── 1D-2. CUSTOMER SELF-SERVICE REQUIREMENT ─────────────────
+
+function portalTrim(value, max) {
+  var text = String(value === null || value === undefined ? '' : value).trim();
+  return text.length > max ? text.substring(0, max) : text;
+}
+
+function portalRfqQuotaKey(email) {
+  return 'rfq_quota_' + Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    'rfq|' + String(email || '').toLowerCase(),
+    Utilities.Charset.UTF_8
+  ).map(function(b) { return ('0' + (b & 0xFF).toString(16)).slice(-2); }).join('').substring(0, 24);
+}
+
+function portalRfqOverQuota(email) {
+  var raw = CacheService.getScriptCache().get(portalRfqQuotaKey(email));
+  return !!raw && parseInt(raw, 10) >= PORTAL_MAX_RFQ_PER_HOUR;
+}
+
+// Counted only after a row is written, so a rejected form never burns quota.
+function portalRfqRecord(email) {
+  var cache = CacheService.getScriptCache();
+  var key = portalRfqQuotaKey(email);
+  cache.put(key, String(parseInt(cache.get(key) || '0', 10) + 1), 3600);
+}
+
+// A signed-in customer raises their own requirement and gets a job row in the
+// same call, so their board never waits on an admin conversion step. The RFQ
+// row still opens as 'Pending' so the partner approval flow is unchanged.
+function handleCustomerRfq(data) {
+  var session = portalVerifyToken(data.token);
+  if (!session) {
+    return jsonResponse({ status: 'error', message: 'Your session has expired. Please sign in again.' });
+  }
+  if (session.role === 'admin') {
+    return jsonResponse({ status: 'error', message: 'Admin accounts raise jobs from the ops queue, not from this form.' });
+  }
+
+  var reg = portalFindRegistration(session.email);
+  if (reg && portalIsColoaderMembership(reg.membership)) {
+    return jsonResponse({ status: 'error', message: 'Co-loader accounts quote on the deals board and cannot raise requirements.' });
+  }
+  if (portalRfqOverQuota(session.email)) {
+    return jsonResponse({
+      status: 'error',
+      message: 'You have submitted ' + PORTAL_MAX_RFQ_PER_HOUR + ' requirements in the last hour. Please try again later or contact our team directly.'
+    });
+  }
+
+  var required = [
+    ['origin', 'Origin port'],
+    ['destination', 'Destination port'],
+    ['shipmentType', 'Shipment type'],
+    ['commodity', 'Commodity'],
+    ['cargoWeight', 'Cargo weight'],
+    ['readyDate', 'Cargo ready date']
+  ];
+  var f = {};
+  for (var i = 0; i < required.length; i++) {
+    f[required[i][0]] = portalTrim(data[required[i][0]], 200);
+    if (!f[required[i][0]]) {
+      return jsonResponse({ status: 'error', message: required[i][1] + ' is required.' });
+    }
+  }
+
+  // Identity is read from the account, never from the payload, so a tampered
+  // request cannot file a requirement against another company.
+  var custSheet = getSheet(TABS.CUSTOMERS);
+  var custRow = custSheet ? findRowByColumn(custSheet, 4, session.email) : null;
+  var company = custRow ? String(custRow[1] || '') : (reg ? reg.companyName : '');
+  var contactName = custRow ? String(custRow[2] || '') : '';
+  var phone = custRow ? String(custRow[4] || '') : '';
+
+  var payload = {
+    fullName: contactName,
+    email: session.email,
+    phone: phone,
+    company: company,
+    origin: f.origin,
+    destination: f.destination,
+    shipmentType: f.shipmentType,
+    cargoWeight: f.cargoWeight,
+    commodity: f.commodity,
+    shipmentValue: portalTrim(data.shipmentValue, 50),
+    containerCount: portalTrim(data.containerCount, 50),
+    incoterm: portalTrim(data.incoterm, 50),
+    readyDate: f.readyDate,
+    deliveryDate: portalTrim(data.deliveryDate, 50),
+    message: portalTrim(data.message, 1000)
+  };
+
+  var sheet = getOrCreateSheet(TABS.RFQ, RFQ_HEADERS);
+  var rfqId = generateId('ME-RFQ-', sheet);
+
+  sheet.appendRow([
+    rfqId, 'Pending', new Date().toISOString(),
+    payload.fullName, payload.email, payload.phone, payload.company,
+    payload.origin, payload.destination, payload.shipmentType,
+    payload.cargoWeight, payload.commodity, payload.shipmentValue,
+    payload.containerCount, payload.incoterm, payload.readyDate,
+    payload.deliveryDate, payload.message, '', '', '', 'Raised by customer from portal'
+  ]);
+
+  portalRfqRecord(session.email);
+
+  var job = portalCreateJobCore(rfqId, {
+    status: 'Booked',
+    paymentStatus: 'Pending',
+    createdBy: session.email,
+    rfqStatus: 'Pending',
+    remarks: 'Raised by customer from portal'
+  });
+
+  // Notifications are best-effort: a MailApp quota error must not turn a row
+  // that is already written into a failed submission.
+  try {
+    sendRFQConfirmation(payload, rfqId);
+    sendTelegramToAdmin(
+      '\uD83D\uDCE6 *New Customer Requirement*\n\n' +
+      '*RFQ:* ' + rfqId + '\n' +
+      '*Job:* ' + (job.jobId || 'not created') + '\n' +
+      '*Route:* ' + payload.origin + ' \u2192 ' + payload.destination + '\n' +
+      '*Cargo:* ' + payload.commodity + ' \u00b7 ' + payload.cargoWeight + '\n' +
+      '*Company:* ' + (payload.company || payload.email) + '\n\n' +
+      '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to assign a vehicle.'
+    );
+    sendRFQNotificationEmail(payload, rfqId);
+  } catch (err) {
+    /* best-effort */
+  }
+
+  return jsonResponse({
+    status: 'success',
+    rfqId: rfqId,
+    jobId: job.jobId || '',
+    warning: job.error || '',
+    message: 'Requirement ' + rfqId + ' created.'
+  });
+}
+
 // RFQ ID -> enquiry fields, read once per request instead of per job.
 function portalBuildRfqIndex() {
   var sheet = getSheet(TABS.RFQ);
@@ -1042,7 +1196,7 @@ function portalCreateJobCore(rfqId, fields) {
   ]);
 
   var jobId = sheet.getRange(sheet.getLastRow(), 1).getValue();
-  updateRFQStatus(rfqId, 'Job Created');
+  updateRFQStatus(rfqId, fields.rfqStatus || 'Job Created');
 
   return { success: true, jobId: jobId, rfqId: rfqId, customerEmail: customerEmail };
 }
@@ -1389,13 +1543,7 @@ function handleColoaderQuote(data) {
 // ─── 2. RFQ SUBMISSION ──────────────────────────────────────
 
 function handleRFQ(data) {
-  var headers = [
-    'RFQ ID', 'Status', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Company',
-    'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity',
-    'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date',
-    'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'
-  ];
-  var sheet = getOrCreateSheet(TABS.RFQ, headers);
+  var sheet = getOrCreateSheet(TABS.RFQ, RFQ_HEADERS);
   var rfqId = generateId('ME-RFQ-', sheet);
 
   sheet.appendRow([

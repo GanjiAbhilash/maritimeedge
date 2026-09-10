@@ -1272,6 +1272,10 @@ document.addEventListener('DOMContentLoaded', () => {
           'Administrator view — every job across all customer accounts, with transporter, driver and EIR details.';
         customerColHead.hidden = false;
         dashCustomer.hidden = false;
+      } else {
+        // .btn sets display, so the hidden attribute alone would not hide these.
+        newReqBtn.style.display = '';
+        exportBtn.style.display = '';
       }
     }
 
@@ -1357,8 +1361,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCustomerFilter();
         renderStats();
         renderTable();
+        dashNotice.textContent = '';
         if (!allBookings.length) {
-          showNotice('No jobs are linked to this account yet. Once our team creates a job against one of your enquiries it will appear here automatically.', 'info');
+          showNotice('No jobs are linked to this account yet. Raise a new requirement and it will appear here straight away.', 'info');
         }
         revealDashboard();
         if (isAdmin) loadOpsQueue();
@@ -1586,6 +1591,140 @@ document.addEventListener('DOMContentLoaded', () => {
         portalBusy(jobForm, false);
         portalShowMsg(jobMsg, 'The service is not reachable right now. Please try again.', 'error');
       });
+    });
+
+    // ── Customer self-service: raise a requirement, download the board ──
+    var newReqBtn = document.getElementById('dash-new-req');
+    var exportBtn = document.getElementById('dash-export');
+    var reqModal = document.getElementById('req-modal');
+    var reqForm = document.getElementById('req-form');
+    var reqMsg = document.getElementById('rq-msg');
+
+    function reqValue(id) {
+      return document.getElementById(id).value.trim();
+    }
+
+    function openRequirementForm() {
+      portalHideMsg(reqMsg);
+      reqForm.reset();
+      document.getElementById('req-identity').textContent =
+        'Filed as ' + (session.company || session.name || session.email) + ' · ' + session.email +
+        ' — your account contact details are attached automatically.';
+      reqModal.hidden = false;
+      reqModal.classList.add('modal--open');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('rq-origin').focus();
+    }
+
+    function closeRequirementForm() {
+      reqModal.classList.remove('modal--open');
+      reqModal.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    newReqBtn.addEventListener('click', openRequirementForm);
+    document.getElementById('req-modal-close').addEventListener('click', closeRequirementForm);
+    reqModal.addEventListener('click', function(e) { if (e.target === reqModal) closeRequirementForm(); });
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && reqModal.classList.contains('modal--open')) closeRequirementForm();
+    });
+
+    reqForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      portalHideMsg(reqMsg);
+
+      if (session.demo) {
+        portalShowMsg(reqMsg, 'Preview mode — sign in with a real account to submit a requirement.', 'info');
+        return;
+      }
+
+      portalBusy(reqForm, true, 'Submitting…');
+
+      portalApi({
+        type: 'customer-rfq',
+        token: session.token,
+        origin: reqValue('rq-origin'),
+        destination: reqValue('rq-destination'),
+        shipmentType: reqValue('rq-shipment-type'),
+        commodity: reqValue('rq-commodity'),
+        cargoWeight: reqValue('rq-cargo-weight'),
+        shipmentValue: reqValue('rq-shipment-value'),
+        containerCount: reqValue('rq-container-count'),
+        incoterm: reqValue('rq-incoterm'),
+        readyDate: reqValue('rq-ready-date'),
+        deliveryDate: reqValue('rq-delivery-date'),
+        message: reqValue('rq-message'),
+        timestamp: new Date().toISOString()
+      }).then(function(res) {
+        portalBusy(reqForm, false);
+        if (!res || res.status !== 'success') {
+          portalShowMsg(reqMsg, (res && res.message) || 'Could not submit the requirement.', 'error');
+          return;
+        }
+        portalShowMsg(reqMsg, 'Requirement ' + res.rfqId + ' created. Opening it on your board…', 'success');
+        window.setTimeout(function() {
+          closeRequirementForm();
+          currentPage = 1;
+          loadBookings();
+        }, 1200);
+      }).catch(function() {
+        portalBusy(reqForm, false);
+        portalShowMsg(reqMsg, 'The service is not reachable right now. Please try again.', 'error');
+      });
+    });
+
+    var CSV_COLUMNS = [
+      ['Job ID', 'jobId'], ['RFQ ID', 'rfqId'], ['Enquiry Date', 'enquiryDate'],
+      ['Status', 'status'], ['Port of Loading', 'portOfLoading'], ['Port of Discharge', 'portOfDischarge'],
+      ['Shipment Type', 'shipmentType'], ['Commodity', 'cargoType'], ['Cargo Weight', 'cargoWeight'],
+      ['Containers', 'containerCount'], ['Incoterm', 'incoterm'], ['Ready Date', 'readyDate'],
+      ['Pickup Date', 'pickupDate'], ['Delivery Date', 'deliveryDate'],
+      ['Transport Company', 'transportCompany'], ['Vehicle Type', 'vehicleType'], ['Vehicle No', 'vehicleNo'],
+      ['Driver Name', 'driverName'], ['Driver Phone', 'driverPhone'], ['EIR Number', 'eirNumber'],
+      ['Transport Charges', 'transportCharges'], ['Payment Status', 'paymentStatus'],
+      ['Last Updated', 'lastUpdated'], ['Remarks', 'remarks']
+    ];
+
+    // A leading =, +, - or @ makes a spreadsheet treat the cell as a formula.
+    function csvCell(value) {
+      var text = value === null || value === undefined ? '' : String(value);
+      if (text === '—') text = '';
+      if (/^[=+\-@\t\r]/.test(text)) text = "'" + text;
+      return '"' + text.replace(/"/g, '""') + '"';
+    }
+
+    function bookingsToCsv(list) {
+      var lines = [CSV_COLUMNS.map(function(col) { return csvCell(col[0]); }).join(',')];
+      list.forEach(function(b) {
+        lines.push(CSV_COLUMNS.map(function(col) {
+          return csvCell(col[1] === 'status' ? PORTAL_STATUS[b.status] : b[col[1]]);
+        }).join(','));
+      });
+      return lines.join('\r\n');
+    }
+
+    function downloadCsv(filename, text) {
+      // The BOM keeps Excel in UTF-8 for port names and the rupee sign.
+      var blob = new Blob(['\uFEFF' + text], { type: 'text/csv;charset=utf-8;' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    exportBtn.addEventListener('click', function() {
+      if (!allBookings.length) {
+        showNotice('There are no jobs on your board to download yet.', 'info');
+        return;
+      }
+      downloadCsv(
+        'maritimeedge-jobs-' + new Date().toISOString().slice(0, 10) + '.csv',
+        bookingsToCsv(allBookings)
+      );
     });
 
     dashSearch.addEventListener('input', function() {

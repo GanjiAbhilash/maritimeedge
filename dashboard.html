@@ -61,6 +61,8 @@
             </div>
           </div>
           <div class="dash__actions">
+            <button type="button" class="btn btn--primary btn--sm" id="dash-new-req" style="display:none;">+ New Requirement</button>
+            <button type="button" class="btn btn--outline btn--sm" id="dash-export" style="display:none;">Download Report</button>
             <button type="button" class="btn btn--outline btn--sm" id="dash-refresh">Refresh</button>
             <button type="button" class="btn btn--primary btn--sm" id="dash-logout">Sign Out</button>
           </div>
@@ -281,6 +283,104 @@
 
           <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;margin-top:8px;" id="jf-submit">Create Job</button>
           <p class="auth__msg" id="jf-msg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="req-modal" role="dialog" aria-modal="true" aria-labelledby="req-modal-title" hidden>
+    <div class="modal__card">
+      <div class="modal__head">
+        <div>
+          <div class="modal__title" id="req-modal-title">New Requirement</div>
+          <div class="modal__subtitle">Raise an RFQ against your account &mdash; it appears on your board straight away.</div>
+        </div>
+        <button type="button" class="modal__close" id="req-modal-close" aria-label="Close new requirement form">&#10005;</button>
+      </div>
+      <div class="modal__body">
+        <div class="notice notice--info" id="req-identity"></div>
+
+        <form class="form" id="req-form">
+          <div class="detail-block__title">Route</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="rq-origin">Origin Port / City *</label>
+              <input type="text" class="form__input" id="rq-origin" placeholder="e.g., Chennai" required>
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="rq-destination">Destination Port / City *</label>
+              <input type="text" class="form__input" id="rq-destination" placeholder="e.g., Jebel Ali" required>
+            </div>
+          </div>
+
+          <div class="detail-block__title" style="margin-top:18px;">Cargo</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="rq-shipment-type">Shipment Type *</label>
+              <select class="form__input" id="rq-shipment-type" required>
+                <option value="">Select type</option>
+                <option value="FCL 20ft">FCL &mdash; 20ft Container</option>
+                <option value="FCL 40ft">FCL &mdash; 40ft Container</option>
+                <option value="FCL 40ft HC">FCL &mdash; 40ft High Cube</option>
+                <option value="LCL">LCL (Less than Container Load)</option>
+                <option value="Reefer 20ft">Reefer &mdash; 20ft</option>
+                <option value="Reefer 40ft">Reefer &mdash; 40ft</option>
+                <option value="Break Bulk">Break Bulk</option>
+                <option value="RoRo">RoRo (Roll-on/Roll-off)</option>
+              </select>
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="rq-cargo-weight">Cargo Weight (kg) *</label>
+              <input type="text" class="form__input" id="rq-cargo-weight" placeholder="e.g., 15000" required>
+            </div>
+          </div>
+          <div class="form__group">
+            <label class="form__label" for="rq-commodity">Commodity / Cargo Description *</label>
+            <input type="text" class="form__input" id="rq-commodity" placeholder="e.g., Auto Components, Cotton Textiles" required>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="rq-shipment-value">Estimated Shipment Value (INR)</label>
+              <input type="number" class="form__input" id="rq-shipment-value" placeholder="e.g., 500000" min="0">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="rq-container-count">Number of Containers / TEUs</label>
+              <input type="number" class="form__input" id="rq-container-count" placeholder="e.g., 2" min="0">
+            </div>
+          </div>
+
+          <div class="detail-block__title" style="margin-top:18px;">Terms &amp; dates</div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="rq-incoterm">Preferred Incoterm</label>
+              <select class="form__input" id="rq-incoterm">
+                <option value="">Select incoterm</option>
+                <option value="FOB">FOB (Free On Board)</option>
+                <option value="CIF">CIF (Cost, Insurance &amp; Freight)</option>
+                <option value="CFR">CFR (Cost &amp; Freight)</option>
+                <option value="EXW">EXW (Ex Works)</option>
+                <option value="DDP">DDP (Delivered Duty Paid)</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="rq-ready-date">Cargo Ready Date *</label>
+              <input type="date" class="form__input" id="rq-ready-date" required>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="form__group">
+              <label class="form__label" for="rq-delivery-date">Preferred Delivery Date</label>
+              <input type="date" class="form__input" id="rq-delivery-date">
+            </div>
+            <div class="form__group">
+              <label class="form__label" for="rq-message">Additional Requirements</label>
+              <input type="text" class="form__input" id="rq-message" placeholder="Hazardous, temperature, stuffing point…">
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn--primary btn--lg" style="width:100%;justify-content:center;margin-top:8px;" id="rq-submit">Submit Requirement</button>
+          <p class="auth__msg" id="rq-msg" role="status" aria-live="polite"></p>
         </form>
       </div>
     </div>
