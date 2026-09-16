@@ -534,18 +534,36 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // Apps Script's redirect layer intermittently drops CORS headers or returns a
+  // 404, so reads are retried. Writes are never retried: the request may have
+  // already run server-side even though the response never came back.
+  var PORTAL_RETRY_SAFE = [
+    'customer-bookings', 'customer-rfq-status', 'admin-marketplace', 'admin-quotes',
+    'admin-jobs-queue', 'admin-rfq-prefill', 'coloader-deals', 'coloader-my-quotes'
+  ];
+
   // Apps Script replies with CORS headers on the final redirect, so a
   // text/plain POST is readable while still being a simple CORS request.
   function portalApi(payload) {
-    return fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(payload)
-    }).then(function(res) {
-      if (!res.ok) throw new Error('Request failed');
-      return res.json();
-    });
+    var attempts = PORTAL_RETRY_SAFE.indexOf(payload && payload.type) > -1 ? 3 : 1;
+
+    var attempt = function(remaining) {
+      return fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        redirect: 'follow',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(payload)
+      }).then(function(res) {
+        if (!res.ok) throw new Error('Request failed');
+        return res.json();
+      }).catch(function(err) {
+        if (remaining <= 1) throw err;
+        return new Promise(function(resolve) { window.setTimeout(resolve, 1500); })
+          .then(function() { return attempt(remaining - 1); });
+      });
+    };
+
+    return attempt(attempts);
   }
 
   function portalShowMsg(el, text, kind) {
@@ -1514,6 +1532,10 @@ document.addEventListener('DOMContentLoaded', () => {
         revealDashboard();
         return;
       }
+
+      // Apps Script cold starts routinely take 20-30s, so say so rather than
+      // leaving the guard on a message that looks stuck.
+      dashGuardMsg.textContent = 'Loading your board… the first load after a quiet period can take up to 30 seconds.';
 
       portalApi({
         type: 'customer-bookings',
@@ -2820,6 +2842,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function loadDeals() {
+      dealsGuardMsg.textContent = 'Loading the deals board… the first load after a quiet period can take up to 30 seconds.';
+
       portalApiAuth({ type: 'coloader-deals' }).then(function(res) {
         if (!res || res.status !== 'success') {
           dealsGuardMsg.textContent = (res && res.message) || 'Your session is no longer valid. Please sign in again.';

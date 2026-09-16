@@ -1468,9 +1468,9 @@ function portalPickJobFields(fields, actorEmail) {
 
 // ─── 1F-2. WEBSITE ADMIN MARKETPLACE (doPost, token-authenticated) ─
 //
-// Approve → compare quotes → raise commission → confirm → release. Every route
-// re-checks the admin token; manufacturer contact details are never returned
-// here, they are emailed by releaseManufacturerDetails() after payment.
+// Approve → compare quotes → raise commission → confirm. Every route re-checks
+// the admin token; manufacturer contact details are never returned here, they
+// are emailed by releaseManufacturerDetails() once the payment clears.
 
 function handleAdminMarketplace(data) {
   var auth = portalRequireAdmin(data);
@@ -1525,7 +1525,7 @@ function handleAdminSendPayment(data) {
   var auth = portalRequireAdmin(data);
   if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
 
-  var result = portalSendPaymentRequestCore(data.quoteId, data.rfqId, 'admin');
+  var result = portalSendPaymentRequestCore(data.quoteId, data.rfqId);
   if (result.error) {
     return jsonResponse({ status: 'error', message: result.error, paymentId: result.paymentId || '' });
   }
@@ -1804,8 +1804,7 @@ function handleColoaderQuote(data) {
 }
 
 // Quotes this co-loader has placed, with commission state. Manufacturer contact
-// is attached only when the matching payment has reached 'Paid', which happens
-// after an admin release — never on the strength of payment alone.
+// is attached only once the matching payment has reached 'Paid'.
 function handleColoaderMyQuotes(data) {
   var auth = portalRequireColoader(data);
   if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
