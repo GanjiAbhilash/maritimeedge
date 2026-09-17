@@ -77,13 +77,35 @@
           <!-- Customer sign up -->
           <div class="auth__panel" id="auth-panel-signup" role="tabpanel" aria-labelledby="auth-tab-signup" hidden>
             <h2 class="auth__title">Create your customer account</h2>
-            <p class="auth__lead">Accounts are available to companies already registered with MaritimeEdge.</p>
-
-            <div class="notice notice--info">
-              <span><strong>Registered companies only.</strong> You can create an account only if your company has completed registration on the <a href="register.html">Register page</a> <em>and</em> our team has confirmed your registration payment. Use the same email address you gave during registration — any other address will be declined.</span>
-            </div>
+            <p class="auth__lead">Exporters and importers join free. Transporters and co-loaders need a confirmed registration first.</p>
 
             <form class="form" id="signup-form" novalidate>
+              <div class="plan-select" id="signup-type">
+                <label class="plan-card plan-card--active">
+                  <input type="radio" name="accountType" value="exim" id="signupTypeExim" checked>
+                  <span class="plan-card__body">
+                    <span class="plan-card__name">Exporter / Importer (EXIM)</span>
+                    <span class="plan-card__note">Free and instant. Raise shipment requirements, track status and receive quotations from our desk.</span>
+                  </span>
+                </label>
+
+                <label class="plan-card">
+                  <input type="radio" name="accountType" value="partner" id="signupTypePartner">
+                  <span class="plan-card__body">
+                    <span class="plan-card__name">Transporter / Co-loader</span>
+                    <span class="plan-card__note">For registered partners whose membership fee has been confirmed by our team.</span>
+                  </span>
+                </label>
+              </div>
+
+              <div class="notice notice--info" id="signup-notice-exim">
+                <span><strong>No registration or fee required.</strong> Your EXIM account is approved the moment you create it. Use your work email address so we can reach you about your shipments.</span>
+              </div>
+
+              <div class="notice notice--info" id="signup-notice-partner" hidden>
+                <span><strong>Registered companies only.</strong> You can create an account only if your company has completed registration on the <a href="register.html">Register page</a> <em>and</em> our team has confirmed your registration payment. Use the same email address you gave during registration — any other address will be declined.</span>
+              </div>
+
               <div class="form__group">
                 <label class="form__label" for="signupCompany">Company Name *</label>
                 <input type="text" class="form__input" id="signupCompany" name="companyName" autocomplete="organization" placeholder="Registered company name" required>
@@ -101,7 +123,7 @@
               <div class="form__group">
                 <label class="form__label" for="signupEmail">Email Address *</label>
                 <input type="email" class="form__input" id="signupEmail" name="email" autocomplete="email" placeholder="you@company.com" required>
-                <p class="auth__hint">Must match the email address on your MaritimeEdge registration, with payment confirmed.</p>
+                <p class="auth__hint" id="signup-email-hint">We will send your shipment updates and quotations to this address.</p>
               </div>
               <div class="form__row">
                 <div class="form__group">
@@ -176,6 +198,11 @@
             <li>Driver name, phone, licence, pass details and Aadhaar last 4 digits</li>
             <li>Shipment status, transport charges and payment status</li>
           </ul>
+
+          <hr style="border:none;border-top:1px solid var(--border-light);margin:24px 0;">
+
+          <h3 class="auth__aside-title" style="margin-bottom:8px;">Exporter or importer?</h3>
+          <p style="color:var(--text-secondary);font-size:0.9rem;">Create a free EXIM account from the <button type="button" class="auth__link-btn" data-auth-goto="signup">Create Account</button> tab — no registration and no membership fee. Raise shipment requirements, track every stage and receive quotations directly from our desk.</p>
 
           <hr style="border:none;border-top:1px solid var(--border-light);margin:24px 0;">
 

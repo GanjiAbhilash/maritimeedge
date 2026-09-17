@@ -2282,6 +2282,11 @@ ul {
   border: 1px solid #BAE6FD;
 }
 
+/* display:flex above would otherwise defeat the hidden attribute. */
+.notice[hidden] {
+  display: none;
+}
+
 /* ========== Dashboard ========== */
 .dash {
   padding: 40px 0 80px;
@@ -2824,6 +2829,36 @@ ul {
 
 .ops-card__btn:hover {
   background: #059669;
+}
+
+/* EXIM desk — the status and quote are edited inline on the card. */
+.ops-card--wide {
+  grid-column: 1 / -1;
+}
+
+.ops-card__form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+
+.ops-card__form .form__group {
+  flex: 1 1 160px;
+  min-width: 140px;
+  margin-bottom: 0;
+}
+
+.ops-card__form .form__input {
+  min-height: 44px;
+}
+
+.ops-card__form .btn {
+  min-height: 44px;
+  flex: 0 0 auto;
 }
 
 /* ========== Co-loader deals board ========== */

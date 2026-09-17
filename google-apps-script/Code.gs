@@ -41,7 +41,7 @@ function getConfig() {
 }
 
 // Bump this whenever you redeploy — GET ?page=api-status echoes it back so you can confirm which code is live.
-var SCRIPT_VERSION = '2026-09-10-marketplace-web-console';
+var SCRIPT_VERSION = '2026-09-17-exim-desk';
 
 // Admin notification emails (used only for critical fallback, not routine notifications)
 var NOTIFICATION_EMAILS = ['mailabhilashganji@gmail.com', 'esrikanth.sri@gmail.com'];
@@ -78,11 +78,35 @@ var JOB_STATUSES = [
   'In Transit', 'Gate-In ICD', 'Delivered', 'On Hold'
 ];
 
+// EXIM (exporter / importer) members join free and are approved on sign-up. Their
+// enquiries never reach the co-loader board: MaritimeEdge quotes them by hand.
+var EXIM_MEMBERSHIP = 'EXIM';
+var EXIM_CHANNEL = 'EXIM';
+var EXIM_RFQ_STATUS = 'EXIM Enquiry';
+var EXIM_REG_PAID_STATUS = 'Free (EXIM)';
+
+// Sign-up is free and unauthenticated, so the whole site shares an hourly cap.
+var PORTAL_MAX_EXIM_SIGNUP_PER_HOUR = 20;
+
+// Full EXIM lifecycle, offered to admins as a dropdown on the EXIM desk.
+var EXIM_STATUSES = [
+  'Enquiry Received', 'Quote Shared', 'Quote Accepted', 'Booking Confirmed',
+  'Container Pickup', 'Stuffing Done', 'Customs Cleared', 'Gate-In Port',
+  'Sailed', 'In Transit', 'Arrived at POD', 'Delivered', 'On Hold', 'Cancelled'
+];
+
 var RFQ_HEADERS = [
   'RFQ ID', 'Status', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Company',
   'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity',
   'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date',
-  'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'
+  'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes',
+  'Channel', 'EXIM Status', 'Quote Amount (INR)', 'Quote Validity (Days)',
+  'Quote Notes', 'Quote Updated At', 'Quote Updated By'
+];
+
+var REGISTRATION_HEADERS = [
+  'Reg ID', 'Timestamp', 'Membership', 'Fee (INR)', 'Company Name', 'Email', 'Phone',
+  'Address', 'District', 'State', 'Pincode', 'Country', 'Payment Status', 'Confirmed At', 'Notes'
 ];
 
 var QUOTE_HEADERS = [
@@ -133,7 +157,10 @@ var PORTAL_MIN_PASSWORD = 8;
 // payment has been confirmed. Column 13 of that tab is written as 'Payment
 // Pending' on submit and 'Paid' by sendRegistrationConfirmation(); any of the
 // values below counts as settled so manual edits like 'Done' also work.
-var PORTAL_PAID_STATUSES = ['done', 'paid', 'completed', 'complete', 'success', 'received', 'confirmed'];
+var PORTAL_PAID_STATUSES = [
+  'done', 'paid', 'completed', 'complete', 'success', 'received', 'confirmed',
+  'free', 'free (exim)'
+];
 
 // ─── WEB APP ENTRY POINTS ────────────────────────────────────
 
@@ -179,6 +206,10 @@ function doPost(e) {
         return handleAdminUpdateJob(data);
       case 'admin-marketplace':
         return handleAdminMarketplace(data);
+      case 'admin-exim-list':
+        return handleAdminEximList(data);
+      case 'admin-exim-update':
+        return handleAdminEximUpdate(data);
       case 'admin-quotes':
         return handleAdminQuotes(data);
       case 'admin-rfq-approve':
@@ -243,6 +274,13 @@ function getSheet(tabName) {
   return ss.getSheetByName(tabName);
 }
 
+// A new Google Sheet is 26 columns wide, so a wider header set has to grow the
+// grid first or getRange() fails with "range exceeds grid limits".
+function ensureGridWidth(sheet, columns) {
+  var max = sheet.getMaxColumns();
+  if (max < columns) sheet.insertColumnsAfter(max, columns - max);
+}
+
 function getOrCreateSheet(tabName, headers) {
   var config = getConfig();
   var ss = SpreadsheetApp.openById(config.SHEET_ID);
@@ -250,6 +288,7 @@ function getOrCreateSheet(tabName, headers) {
   if (!sheet) {
     sheet = ss.insertSheet(tabName);
     if (headers && headers.length) {
+      ensureGridWidth(sheet, headers.length);
       sheet.appendRow(headers);
       sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     }
@@ -413,11 +452,7 @@ function sendSubscriberAcknowledgment(email) {
 // ─── 1B. PARTNER REGISTRATION (Transporter / Co-loader) ──────
 
 function handleRegistration(data) {
-  var headers = [
-    'Reg ID', 'Timestamp', 'Membership', 'Fee (INR)', 'Company Name', 'Email', 'Phone',
-    'Address', 'District', 'State', 'Pincode', 'Country', 'Payment Status', 'Confirmed At', 'Notes'
-  ];
-  var sheet = getOrCreateSheet(TABS.REGISTRATIONS, headers);
+  var sheet = getOrCreateSheet(TABS.REGISTRATIONS, REGISTRATION_HEADERS);
   var regId = generateId('ME-REG-', sheet);
 
   sheet.appendRow([
@@ -615,6 +650,41 @@ function ensureCustomerColumns(sheet) {
     .setFontWeight('bold');
 }
 
+// Adds the channel and manual-quote columns to an RFQ tab created before the EXIM desk existed.
+function ensureRfqColumns(sheet) {
+  if (sheet.getLastColumn() >= RFQ_HEADERS.length) return;
+  ensureGridWidth(sheet, RFQ_HEADERS.length);
+  sheet.getRange(1, 1, 1, RFQ_HEADERS.length)
+    .setValues([RFQ_HEADERS])
+    .setFontWeight('bold');
+}
+
+function portalEximSignupOverQuota() {
+  var raw = CacheService.getScriptCache().get('exim_signup_hour');
+  return !!raw && parseInt(raw, 10) >= PORTAL_MAX_EXIM_SIGNUP_PER_HOUR;
+}
+
+function portalEximSignupRecord() {
+  var cache = CacheService.getScriptCache();
+  cache.put('exim_signup_hour', String(parseInt(cache.get('exim_signup_hour') || '0', 10) + 1), 3600);
+}
+
+// EXIM members pay nothing, so the registration row is written for them and
+// marked settled straight away.
+function portalCreateEximRegistration(email, companyName, phone) {
+  var sheet = getOrCreateSheet(TABS.REGISTRATIONS, REGISTRATION_HEADERS);
+  var regId = generateId('ME-REG-', sheet);
+  var now = new Date().toISOString();
+
+  sheet.appendRow([
+    regId, now, EXIM_MEMBERSHIP, 0, companyName, email, phone,
+    '', '', '', '', 'India', EXIM_REG_PAID_STATUS, now,
+    'Self-registered EXIM account \u2014 no fee'
+  ]);
+
+  return { regId: regId, companyName: companyName, membership: EXIM_MEMBERSHIP, paid: true };
+}
+
 function handleCustomerSignup(data) {
   var email = String(data.email || '').trim().toLowerCase();
   var password = String(data.password || '');
@@ -634,6 +704,17 @@ function handleCustomerSignup(data) {
   }
 
   var registration = portalFindRegistration(email);
+  var wantsExim = String(data.accountType || '').trim().toLowerCase() === 'exim';
+
+  // EXIM accounts are free and instant. A company that already registered as a
+  // paying partner still has to clear the payment check below.
+  if (wantsExim && !registration) {
+    if (portalEximSignupOverQuota()) {
+      return jsonResponse({ status: 'error', message: 'We are receiving a lot of sign-ups right now. Please try again in an hour.' });
+    }
+    registration = portalCreateEximRegistration(email, companyName, phone);
+    portalEximSignupRecord();
+  }
 
   if (!registration) {
     return jsonResponse({
@@ -970,6 +1051,8 @@ function portalRfqRecord(email) {
 // same call, so their board never waits on an admin conversion step. The RFQ
 // is auto-approved because the account is already verified and paid, which
 // puts it straight on the co-loader deals board with no partner selection.
+// EXIM members are the exception: their enquiry stays private and is quoted
+// by hand from the admin EXIM desk.
 function handleCustomerRfq(data) {
   var session = portalVerifyToken(data.token);
   if (!session) {
@@ -983,6 +1066,7 @@ function handleCustomerRfq(data) {
   if (reg && portalIsColoaderMembership(reg.membership)) {
     return jsonResponse({ status: 'error', message: 'Co-loader accounts quote on the deals board and cannot raise requirements.' });
   }
+  var isExim = !!reg && portalIsEximMembership(reg.membership);
   if (portalRfqOverQuota(session.email)) {
     return jsonResponse({
       status: 'error',
@@ -1033,36 +1117,45 @@ function handleCustomerRfq(data) {
   };
 
   var sheet = getOrCreateSheet(TABS.RFQ, RFQ_HEADERS);
+  ensureRfqColumns(sheet);
   var rfqId = generateId('ME-RFQ-', sheet);
   var now = new Date().toISOString();
 
   // 'Approved' is what COLOADER_OPEN_STATUSES looks for, and a blank partner
-  // list means every co-loader member sees it rather than a chosen few.
+  // list means every co-loader member sees it rather than a chosen few. An
+  // EXIM enquiry uses a status outside that list so it is never published.
   sheet.appendRow([
-    rfqId, 'Approved', now,
+    rfqId, isExim ? EXIM_RFQ_STATUS : 'Approved', now,
     payload.fullName, payload.email, payload.phone, payload.company,
     payload.origin, payload.destination, payload.shipmentType,
     payload.cargoWeight, payload.commodity, payload.shipmentValue,
     payload.containerCount, payload.incoterm, payload.readyDate,
     payload.deliveryDate, payload.message,
-    '', 'Auto-approved (verified customer)', now, 'Raised by customer from portal'
+    '',
+    isExim ? '' : 'Auto-approved (verified customer)',
+    isExim ? '' : now,
+    isExim ? 'EXIM enquiry \u2014 quoted by the MaritimeEdge desk' : 'Raised by customer from portal',
+    isExim ? EXIM_CHANNEL : '', isExim ? EXIM_STATUSES[0] : '', '', '', '', '', ''
   ]);
 
   portalRfqRecord(session.email);
 
   // The RFQ row is already live, so a job failure is reported as a warning
-  // rather than losing the requirement the customer just submitted.
-  var job;
-  try {
-    job = portalCreateJobCore(rfqId, {
-      status: 'Booked',
-      paymentStatus: 'Pending',
-      createdBy: session.email,
-      rfqStatus: 'Approved',
-      remarks: 'Raised by customer from portal'
-    });
-  } catch (err) {
-    job = { error: 'The job record could not be created: ' + err };
+  // rather than losing the requirement the customer just submitted. EXIM
+  // enquiries get a job only once the desk has agreed the movement.
+  var job = { jobId: '' };
+  if (!isExim) {
+    try {
+      job = portalCreateJobCore(rfqId, {
+        status: 'Booked',
+        paymentStatus: 'Pending',
+        createdBy: session.email,
+        rfqStatus: 'Approved',
+        remarks: 'Raised by customer from portal'
+      });
+    } catch (err) {
+      job = { error: 'The job record could not be created: ' + err };
+    }
   }
 
   // Notifications are best-effort: a MailApp quota error must not turn a row
@@ -1070,14 +1163,16 @@ function handleCustomerRfq(data) {
   try {
     sendRFQConfirmation(payload, rfqId);
     sendTelegramToAdmin(
-      '\uD83D\uDCE6 *New Customer Requirement (auto-approved)*\n\n' +
+      (isExim ? '\uD83D\uDEA2 *New EXIM Enquiry (manual quote)*' : '\uD83D\uDCE6 *New Customer Requirement (auto-approved)*') + '\n\n' +
       '*RFQ:* ' + rfqId + '\n' +
       '*Job:* ' + (job.jobId || 'not created') + '\n' +
       '*Route:* ' + payload.origin + ' \u2192 ' + payload.destination + '\n' +
       '*Cargo:* ' + payload.commodity + ' \u00b7 ' + payload.cargoWeight + '\n' +
       '*Company:* ' + (payload.company || payload.email) + '\n\n' +
-      'Live on the co-loader deals board \u2014 no approval needed.\n' +
-      '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ') to assign a vehicle.'
+      (isExim
+        ? 'Private to MaritimeEdge \u2014 set the status and quote on the EXIM desk.'
+        : 'Live on the co-loader deals board \u2014 no approval needed.') + '\n' +
+      '\uD83D\uDC49 [Open Admin Panel](' + getAdminUrl() + ')'
     );
     sendRFQNotificationEmail(payload, rfqId);
   } catch (err) {
@@ -1571,6 +1666,7 @@ function handleCustomerRfqStatus(data) {
   if (!sheet || sheet.getLastRow() <= 1) {
     return jsonResponse({ status: 'success', rfqs: [] });
   }
+  ensureRfqColumns(sheet);
 
   var quoteCounts = portalQuoteCountsByRfq();
   var deals = portalDealsByRfq();
@@ -1601,7 +1697,13 @@ function handleCustomerRfqStatus(data) {
       quoteCount: quoteCounts[key] || 0,
       // The winning partner is named only once the deal is closed.
       matchedPartner: (closed && deal) ? deal.logisticsCompany : '',
-      dealId: (closed && deal) ? deal.dealId : ''
+      dealId: (closed && deal) ? deal.dealId : '',
+      channel: String(r[22] || '').trim().toUpperCase(),
+      eximStatus: r[23],
+      quoteAmount: r[24],
+      quoteValidity: r[25],
+      quoteNotes: r[26],
+      quoteUpdatedAt: portalDateOnly(r[27])
     });
   }
 
@@ -1643,6 +1745,141 @@ function portalPaymentsByQuote(partnerId) {
   return out;
 }
 
+// ─── 1F-4. ADMIN EXIM DESK (doPost, token-authenticated) ─────
+//
+// EXIM enquiries are not auctioned, so there is no partner, quote row or
+// commission. An admin sets the lifecycle status and a quotation by hand and
+// both are written back onto the RFQ row.
+
+function handleAdminEximList(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet || sheet.getLastRow() <= 1) {
+    return jsonResponse({ status: 'success', enquiries: [], eximStatuses: EXIM_STATUSES });
+  }
+  ensureRfqColumns(sheet);
+
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, RFQ_HEADERS.length).getValues();
+  var out = [];
+
+  for (var i = 0; i < values.length; i++) {
+    var r = safeRow(values[i]);
+    if (!r[0] || String(r[22] || '').trim().toUpperCase() !== EXIM_CHANNEL) continue;
+
+    out.push({
+      rfqId: r[0],
+      rfqStatus: r[1],
+      raisedAt: portalDateOnly(r[2]),
+      contactName: r[3],
+      email: r[4],
+      phone: r[5],
+      company: r[6],
+      origin: r[7],
+      destination: r[8],
+      shipmentType: r[9],
+      cargoWeight: r[10],
+      commodity: r[11],
+      containerCount: r[13],
+      incoterm: r[14],
+      readyDate: portalDateOnly(r[15]),
+      deliveryDate: portalDateOnly(r[16]),
+      message: r[17],
+      eximStatus: r[23] || EXIM_STATUSES[0],
+      quoteAmount: r[24],
+      quoteValidity: r[25],
+      quoteNotes: r[26],
+      quoteUpdatedAt: portalDateOnly(r[27]),
+      quoteUpdatedBy: r[28]
+    });
+  }
+
+  out.reverse();
+  return jsonResponse({ status: 'success', enquiries: out, eximStatuses: EXIM_STATUSES });
+}
+
+function handleAdminEximUpdate(data) {
+  var auth = portalRequireAdmin(data);
+  if (auth.error) return jsonResponse({ status: 'error', message: auth.error });
+
+  var rfqId = String(data.rfqId || '').trim();
+  var sheet = getSheet(TABS.RFQ);
+  if (!sheet) return jsonResponse({ status: 'error', message: 'RFQ sheet not found' });
+  ensureRfqColumns(sheet);
+
+  var rowNum = findRowNumberByColumn(sheet, 1, rfqId);
+  if (rowNum < 0) return jsonResponse({ status: 'error', message: 'Enquiry ' + rfqId + ' not found.' });
+
+  var row = safeRow(sheet.getRange(rowNum, 1, 1, RFQ_HEADERS.length).getValues()[0]);
+  if (String(row[22] || '').trim().toUpperCase() !== EXIM_CHANNEL) {
+    return jsonResponse({ status: 'error', message: rfqId + ' is not an EXIM enquiry.' });
+  }
+
+  var status = String(data.eximStatus || '').trim();
+  if (EXIM_STATUSES.indexOf(status) < 0) {
+    return jsonResponse({ status: 'error', message: 'Unknown EXIM status: ' + status });
+  }
+
+  // Blank clears the quotation. Anything else is parsed strictly rather than
+  // stripped, so '-500' fails instead of becoming 500.
+  var rawAmount = String(data.quoteAmount === null || data.quoteAmount === undefined ? '' : data.quoteAmount)
+    .trim().replace(/[\u20B9,\s]/g, '');
+  var amount = '';
+  if (rawAmount) {
+    if (!/^\d+(\.\d{1,2})?$/.test(rawAmount) || !(parseFloat(rawAmount) > 0)) {
+      return jsonResponse({ status: 'error', message: 'Enter a valid quotation amount, or leave it blank.' });
+    }
+    amount = parseFloat(rawAmount);
+  }
+
+  var validity = String(data.quoteValidity === null || data.quoteValidity === undefined ? '' : data.quoteValidity).trim();
+  if (validity && !/^\d{1,3}$/.test(validity)) {
+    return jsonResponse({ status: 'error', message: 'Quote validity must be a whole number of days.' });
+  }
+
+  var notes = portalTrim(data.quoteNotes, 500);
+  var changed = String(row[23] || '') !== status || String(row[24] || '') !== String(amount);
+
+  sheet.getRange(rowNum, 24, 1, 6)
+    .setValues([[status, amount, validity, notes, new Date().toISOString(), auth.session.email]]);
+
+  if (changed) sendEximUpdateEmail(row, status, amount, validity, notes);
+
+  return jsonResponse({ status: 'success', rfqId: rfqId, message: 'Enquiry ' + rfqId + ' updated.' });
+}
+
+function sendEximUpdateEmail(row, status, amount, validity, notes) {
+  var email = String(row[4] || '').trim();
+  if (!email) return;
+
+  var config = getConfig();
+  var quoteBlock = amount === '' || amount === null
+    ? '<p style="color:#333;line-height:1.6;">Our desk is still preparing your quotation.</p>'
+    : '<div style="text-align:center;margin:24px 0;padding:20px;background:#EEF2FF;border-radius:8px;">' +
+      '<p style="margin:0 0 8px;color:#666;font-size:0.85rem;">Quotation</p>' +
+      '<p style="margin:0;font-size:2rem;font-weight:800;color:#0A2463;">' + formatINR(amount) + '</p>' +
+      (validity ? '<p style="margin:8px 0 0;color:#666;font-size:0.85rem;">Valid for ' + validity + ' days</p>' : '') +
+      '</div>';
+
+  try {
+    MailApp.sendEmail({
+      to: email,
+      subject: 'Update on your enquiry ' + row[0] + ' \u2014 MaritimeEdge',
+      htmlBody: portalEmailShell('Your enquiry has been updated',
+        '<p style="color:#333;line-height:1.6;">Hello ' + (row[3] || 'there') + ',</p>' +
+        '<p style="color:#333;line-height:1.6;">Enquiry <strong>' + row[0] + '</strong> (' + row[7] + ' \u2192 ' + row[8] + ') is now at stage <strong>' + status + '</strong>.</p>' +
+        quoteBlock +
+        (notes ? '<p style="color:#555;line-height:1.6;"><strong>Notes from our desk:</strong><br>' + notes + '</p>' : '') +
+        '<div style="text-align:center;margin:24px 0;">' +
+        '<a href="' + config.SITE_URL + '/dashboard.html" style="background:#0A2463;color:#fff;padding:14px 28px;text-decoration:none;border-radius:6px;display:inline-block;">Open Your Dashboard</a></div>'),
+      name: 'MaritimeEdge'
+    });
+  } catch (err) {
+    /* delivery is best-effort; the sheet is already updated */
+  }
+}
+
 // ─── 1G. CO-LOADER DEALS BOARD (doPost, token-authenticated) ─
 //
 // Co-loaders quote on open RFQs from the portal. Everything served here is
@@ -1660,6 +1897,10 @@ function portalNormalizeMembership(value) {
 
 function portalIsColoaderMembership(value) {
   return portalNormalizeMembership(value) === 'coloader';
+}
+
+function portalIsEximMembership(value) {
+  return portalNormalizeMembership(value) === 'exim';
 }
 
 function portalRequireColoader(data) {
@@ -1705,14 +1946,17 @@ function handleColoaderDeals(data) {
   if (!sheet || sheet.getLastRow() <= 1) {
     return jsonResponse({ status: 'success', company: auth.registration.companyName, deals: [] });
   }
+  ensureRfqColumns(sheet);
 
   var myQuotes = portalQuotesByPartner(auth.registration.regId);
-  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, 17).getValues();
+  var values = sheet.getRange(2, 1, sheet.getLastRow() - 1, RFQ_HEADERS.length).getValues();
   var deals = [];
 
   for (var i = 0; i < values.length; i++) {
     var r = safeRow(values[i]);
     if (!r[0] || COLOADER_OPEN_STATUSES.indexOf(String(r[1]).trim()) < 0) continue;
+    // Second gate behind the status check: an EXIM enquiry must never be bid on.
+    if (String(r[22] || '').trim().toUpperCase() === EXIM_CHANNEL) continue;
     deals.push(portalAnonymizedDeal(r, myQuotes[String(r[0]).trim().toUpperCase()]));
   }
 
@@ -1867,6 +2111,7 @@ function handleColoaderMyQuotes(data) {
 
 function handleRFQ(data) {
   var sheet = getOrCreateSheet(TABS.RFQ, RFQ_HEADERS);
+  ensureRfqColumns(sheet);
   var rfqId = generateId('ME-RFQ-', sheet);
 
   sheet.appendRow([
@@ -2182,6 +2427,7 @@ function portalPartnersListCore() {
       var r = safeRow(row);
       if (!r[0]) return;
       if (PORTAL_PAID_STATUSES.indexOf(String(r[12] || '').trim().toLowerCase()) < 0) return;
+      if (portalIsEximMembership(r[2])) return;
       out.push({
         partnerId: r[0], companyName: r[4], contactPerson: r[4],
         email: r[5], phone: r[6], whatsapp: r[6], telegramChatId: '',
@@ -2965,6 +3211,7 @@ function setupSheetTabs() {
       Logger.log('Created sheet: ' + tabName);
     }
     // Always write/update headers in row 1
+    ensureGridWidth(sheet, headers.length);
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     sheet.getRange(1, 1, 1, headers.length).setFontWeight('bold');
     Logger.log('Headers set: ' + tabName + ' (' + headers.length + ' columns)');
@@ -3041,6 +3288,111 @@ function testDoPost() {
   Logger.log('testDoPost result: ' + result.getContent());
 }
 
+// ─── TEST: End-to-end EXIM flow (run from the GAS editor) ────
+// Signs up a free EXIM account, raises an enquiry, quotes it as an admin and
+// checks the customer sees it while co-loaders do not. Writes real rows —
+// run cleanupEximTestRows() afterwards. ADMIN_PASSWORD must be set.
+var EXIM_TEST_EMAIL = 'exim.selftest@maritimeedge.test';
+
+function testEximFlow() {
+  var pass = 0, fail = 0;
+  var check = function(label, ok, detail) {
+    if (ok) { pass++; Logger.log('PASS  ' + label); }
+    else { fail++; Logger.log('FAIL  ' + label + (detail ? ' \u2014 ' + detail : '')); }
+  };
+  var call = function(payload) {
+    return JSON.parse(doPost({ postData: { contents: JSON.stringify(payload), type: 'text/plain' } }).getContent());
+  };
+
+  cleanupEximTestRows();
+
+  var password = 'exim-test-' + Utilities.getUuid().substring(0, 8);
+
+  var signup = call({
+    type: 'customer-signup', accountType: 'exim',
+    companyName: 'EXIM Selftest Exports', contactName: 'Selftest User',
+    email: EXIM_TEST_EMAIL, phone: '+91 90000 00000', password: password
+  });
+  check('1. EXIM signup needs no prior registration', signup.status === 'success', signup.message);
+
+  var login = call({ type: 'customer-login', email: EXIM_TEST_EMAIL, password: password });
+  check('2. EXIM customer can sign in', login.status === 'success', login.message);
+  check('3. Membership reported as EXIM', portalIsEximMembership(login.membership), 'got: ' + login.membership);
+  if (login.status !== 'success') { Logger.log('Aborting: ' + pass + ' passed, ' + fail + ' failed.'); return; }
+
+  var rfq = call({
+    type: 'customer-rfq', token: login.token,
+    origin: 'Nhava Sheva (JNPT)', destination: 'Jebel Ali, UAE',
+    shipmentType: 'FCL 20ft', commodity: 'Ceramic Tiles',
+    cargoWeight: '18000', containerCount: '1', incoterm: 'FOB',
+    readyDate: '2026-10-01', message: 'EXIM self-test enquiry'
+  });
+  check('4. EXIM customer can raise an enquiry', rfq.status === 'success', rfq.message);
+  check('5. No job auto-created for EXIM', !rfq.jobId, 'jobId: ' + rfq.jobId);
+  if (rfq.status !== 'success') { Logger.log('Aborting: ' + pass + ' passed, ' + fail + ' failed.'); return; }
+
+  var admin = call({ type: 'admin-login', email: PORTAL_ADMIN_EMAILS[0], password: getConfig().ADMIN_PASSWORD });
+  check('6. Admin can sign in', admin.status === 'success', admin.message);
+  if (admin.status !== 'success') { Logger.log('Aborting: ' + pass + ' passed, ' + fail + ' failed.'); return; }
+
+  var list = call({ type: 'admin-exim-list', token: admin.token });
+  var listed = (list.enquiries || []).filter(function(e) { return e.rfqId === rfq.rfqId; })[0];
+  check('7. Enquiry appears on the EXIM desk', !!listed, list.message);
+  check('8. Desk offers the EXIM status list', (list.eximStatuses || []).length === EXIM_STATUSES.length);
+  check('9. Opens at "Enquiry Received"', listed && listed.eximStatus === EXIM_STATUSES[0], listed && listed.eximStatus);
+
+  var badAmount = call({ type: 'admin-exim-update', token: admin.token, rfqId: rfq.rfqId, eximStatus: 'Quote Shared', quoteAmount: '-500' });
+  check('10. Negative quote rejected', badAmount.status === 'error', badAmount.message);
+
+  var badStatus = call({ type: 'admin-exim-update', token: admin.token, rfqId: rfq.rfqId, eximStatus: 'Teleported' });
+  check('11. Unknown status rejected', badStatus.status === 'error', badStatus.message);
+
+  var notAdmin = call({ type: 'admin-exim-update', token: login.token, rfqId: rfq.rfqId, eximStatus: 'Quote Shared', quoteAmount: '125000' });
+  check('12. Customer token cannot update the desk', notAdmin.status === 'error', notAdmin.message);
+
+  var update = call({
+    type: 'admin-exim-update', token: admin.token, rfqId: rfq.rfqId,
+    eximStatus: 'Quote Shared', quoteAmount: '125000', quoteValidity: '7',
+    quoteNotes: 'All-in ocean freight, THC at destination excluded.'
+  });
+  check('13. Admin can set status and quote', update.status === 'success', update.message);
+
+  var mine = call({ type: 'customer-rfq-status', token: login.token });
+  var seen = (mine.rfqs || []).filter(function(r) { return r.rfqId === rfq.rfqId; })[0];
+  check('14. Customer sees the quote', seen && String(seen.quoteAmount) === '125000', seen && String(seen.quoteAmount));
+  check('15. Customer sees the EXIM status', seen && seen.eximStatus === 'Quote Shared', seen && seen.eximStatus);
+  check('16. Enquiry is tagged EXIM', seen && seen.channel === EXIM_CHANNEL, seen && seen.channel);
+
+  var board = portalRfqListCore().filter(function(r) { return r.rfqId === rfq.rfqId; })[0];
+  check('17. Enquiry stays off the co-loader board', board && COLOADER_OPEN_STATUSES.indexOf(String(board.status).trim()) < 0, board && board.status);
+
+  var partners = portalPartnersListCore().filter(function(p) { return String(p.email).toLowerCase() === EXIM_TEST_EMAIL; });
+  check('18. EXIM member is not offered as a partner', partners.length === 0);
+
+  Logger.log('\n' + pass + ' passed, ' + fail + ' failed. Run cleanupEximTestRows() to remove the test data.');
+}
+
+function cleanupEximTestRows() {
+  var removed = 0;
+
+  var dropRows = function(tabName, colIndex, matcher) {
+    var sheet = getSheet(tabName);
+    if (!sheet || sheet.getLastRow() <= 1) return;
+    var values = sheet.getRange(2, colIndex, sheet.getLastRow() - 1, 1).getValues();
+    for (var i = values.length - 1; i >= 0; i--) {
+      if (matcher(String(values[i][0] || ''))) { sheet.deleteRow(i + 2); removed++; }
+    }
+  };
+
+  var isTestEmail = function(v) { return v.trim().toLowerCase() === EXIM_TEST_EMAIL; };
+
+  dropRows(TABS.CUSTOMERS, 4, isTestEmail);
+  dropRows(TABS.REGISTRATIONS, 6, isTestEmail);
+  dropRows(TABS.RFQ, 5, isTestEmail);
+
+  Logger.log('Removed ' + removed + ' test rows for ' + EXIM_TEST_EMAIL);
+}
+
 // ─── 13. EXISTING SHEET MIGRATION (run once if upgrading) ────
 // Run this ONCE if you already have an old "RFQ Submissions" tab with 13 columns.
 // It deletes the old tab and creates a fresh one with the new 22-column headers.
@@ -3059,15 +3411,10 @@ function migrateExistingRFQSheet() {
   Logger.log('Deleted old RFQ Submissions tab.');
 
   // Create new tab with correct headers
-  var newHeaders = [
-    'RFQ ID', 'Status', 'Timestamp', 'Full Name', 'Email', 'Phone', 'Company',
-    'Origin', 'Destination', 'Shipment Type', 'Cargo Weight', 'Commodity',
-    'Shipment Value (INR)', 'Container Count', 'Incoterm', 'Ready Date',
-    'Delivery Date', 'Message', 'Assigned Partners', 'Approved By', 'Approved At', 'Notes'
-  ];
   var newSheet = ss.insertSheet('RFQ Submissions');
-  newSheet.appendRow(newHeaders);
-  newSheet.getRange(1, 1, 1, newHeaders.length).setFontWeight('bold');
+  ensureGridWidth(newSheet, RFQ_HEADERS.length);
+  newSheet.appendRow(RFQ_HEADERS);
+  newSheet.getRange(1, 1, 1, RFQ_HEADERS.length).setFontWeight('bold');
 
-  Logger.log('Migration complete! Fresh RFQ Submissions tab created with 22 columns.');
+  Logger.log('Migration complete! Fresh RFQ Submissions tab created with ' + RFQ_HEADERS.length + ' columns.');
 }

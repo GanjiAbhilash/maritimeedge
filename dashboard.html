@@ -103,7 +103,7 @@
           <div class="ops__head">
             <div>
               <h2 class="ops__title">My Enquiries</h2>
-              <p class="ops__note">Every requirement you have raised, from quotation stage through to the awarded partner.</p>
+              <p class="ops__note">Every requirement you have raised, with its current stage and the quotation from our desk.</p>
             </div>
             <button type="button" class="btn btn--outline btn--sm" id="enq-refresh">Refresh</button>
           </div>
@@ -134,6 +134,7 @@
             <button type="button" class="mkt__tab mkt__tab--active" data-mkt-tab="approvals" role="tab" aria-selected="true">Approvals</button>
             <button type="button" class="mkt__tab" data-mkt-tab="quotes" role="tab" aria-selected="false">Quotations</button>
             <button type="button" class="mkt__tab" data-mkt-tab="payments" role="tab" aria-selected="false">Payments &amp; Deals</button>
+            <button type="button" class="mkt__tab" data-mkt-tab="exim" role="tab" aria-selected="false">EXIM Desk</button>
           </div>
 
           <div id="mkt-msg"></div>
@@ -158,6 +159,12 @@
             <div id="mkt-payments"></div>
             <div class="detail-block__title" style="margin-top:24px;">Closed deals</div>
             <div id="mkt-deals"></div>
+          </div>
+
+          <div class="mkt__panel" id="mkt-panel-exim" hidden>
+            <p class="ops__note">Free EXIM member enquiries. These are never published to co-loaders — set the shipment status and the quotation here, and the customer sees both on their dashboard.</p>
+            <div id="exim-msg"></div>
+            <div id="exim-list" class="ops__list"></div>
           </div>
         </section>
 

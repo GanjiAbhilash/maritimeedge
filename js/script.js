@@ -539,7 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // already run server-side even though the response never came back.
   var PORTAL_RETRY_SAFE = [
     'customer-bookings', 'customer-rfq-status', 'admin-marketplace', 'admin-quotes',
-    'admin-jobs-queue', 'admin-rfq-prefill', 'coloader-deals', 'coloader-my-quotes'
+    'admin-jobs-queue', 'admin-rfq-prefill', 'admin-exim-list', 'coloader-deals', 'coloader-my-quotes'
   ];
 
   // Apps Script replies with CORS headers on the final redirect, so a
@@ -593,6 +593,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function portalIsColoader(membership) {
     return String(membership || '').toLowerCase().replace(/[^a-z]/g, '') === 'coloader';
+  }
+
+  function portalIsExim(membership) {
+    return String(membership || '').toLowerCase().replace(/[^a-z]/g, '') === 'exim';
   }
 
   // Stops dashboard.html and deals.html ping-ponging if the session cannot be
@@ -922,6 +926,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
   if (signupForm) {
     var signupMsg = document.getElementById('signup-msg');
+    var signupTypes = signupForm.querySelectorAll('input[name="accountType"]');
+
+    function signupAccountType() {
+      var checked = signupForm.querySelector('input[name="accountType"]:checked');
+      return checked ? checked.value : 'exim';
+    }
+
+    function syncSignupType() {
+      var isExim = signupAccountType() === 'exim';
+
+      signupForm.querySelectorAll('.plan-card').forEach(function(card) {
+        var radio = card.querySelector('input[name="accountType"]');
+        card.classList.toggle('plan-card--active', !!radio && radio.checked);
+      });
+
+      document.getElementById('signup-notice-exim').hidden = !isExim;
+      document.getElementById('signup-notice-partner').hidden = isExim;
+      document.getElementById('signup-email-hint').textContent = isExim
+        ? 'We will send your shipment updates and quotations to this address.'
+        : 'Must match the email address on your MaritimeEdge registration, with payment confirmed.';
+    }
+
+    signupTypes.forEach(function(radio) {
+      radio.addEventListener('change', syncSignupType);
+    });
+    syncSignupType();
 
     signupForm.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -948,6 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       portalApi({
         type: 'customer-signup',
+        accountType: signupAccountType(),
         companyName: document.getElementById('signupCompany').value.trim(),
         contactName: document.getElementById('signupName').value.trim(),
         email: email,
@@ -962,6 +993,7 @@ document.addEventListener('DOMContentLoaded', () => {
           return;
         }
         signupForm.reset();
+        syncSignupType();
         portalShowMsg(signupMsg, 'Account created. You can now sign in with ' + email + '.', 'success');
         var loginEmail = document.getElementById('loginEmail');
         if (loginEmail) loginEmail.value = email;
@@ -1462,7 +1494,9 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('dash-avatar').textContent = label.trim().charAt(0).toUpperCase();
       document.getElementById('dash-user-name').textContent = label;
       document.getElementById('dash-user-meta').textContent =
-        (isAdmin ? 'Administrator · ' : 'Customer account · ') + session.email;
+        (isAdmin
+          ? 'Administrator · '
+          : (portalIsExim(session.membership) ? 'EXIM account · ' : 'Customer account · ')) + session.email;
 
       if (isAdmin) {
         document.getElementById('dash-heading').textContent = 'All Customer Jobs';
@@ -1565,7 +1599,9 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable();
         dashNotice.textContent = '';
         if (!allBookings.length) {
-          showNotice('No jobs are linked to this account yet. Raise a new requirement and it will appear here straight away.', 'info');
+          showNotice(portalIsExim(session.membership)
+            ? 'No shipments have been booked on this account yet. Raise a requirement below and follow its progress under My Enquiries.'
+            : 'No jobs are linked to this account yet. Raise a new requirement and it will appear here straight away.', 'info');
         }
         revealDashboard();
         if (isAdmin) {
@@ -1868,7 +1904,9 @@ document.addEventListener('DOMContentLoaded', () => {
           portalShowMsg(reqMsg, (res && res.message) || 'Could not submit the requirement.', 'error');
           return;
         }
-        portalShowMsg(reqMsg, 'Requirement ' + res.rfqId + ' created and shared with co-loaders. Opening it on your board…', 'success');
+        portalShowMsg(reqMsg, 'Requirement ' + res.rfqId + (portalIsExim(session.membership)
+          ? ' received. Our desk will share a quotation with you shortly.'
+          : ' created and shared with co-loaders. Opening it on your board…'), 'success');
         window.setTimeout(function() {
           closeRequirementForm();
           currentPage = 1;
@@ -1961,6 +1999,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return 'booked';
     }
 
+    function eximStageClass(status) {
+      var s = String(status || '').toLowerCase();
+      if (s.indexOf('hold') > -1 || s.indexOf('cancel') > -1) return 'hold';
+      if (s.indexOf('deliver') > -1) return 'delivered';
+      if (s.indexOf('arrived') > -1 || s.indexOf('gate-in') > -1) return 'gatein';
+      if (s.indexOf('sailed') > -1 || s.indexOf('transit') > -1) return 'transit';
+      if (s.indexOf('stuffing') > -1 || s.indexOf('customs') > -1 || s.indexOf('pickup') > -1) return 'loaded';
+      if (s.indexOf('booking') > -1 || s.indexOf('accepted') > -1) return 'assigned';
+      if (s.indexOf('quote') > -1) return 'loading';
+      return 'booked';
+    }
+
     function loadEnquiries() {
       if (isAdmin || session.demo || !enqPanel) return;
       enqPanel.hidden = false;
@@ -1989,6 +2039,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       rows.forEach(function(r) {
+        var isExim = r.channel === 'EXIM';
         var card = document.createElement('div');
         card.className = 'ops-card';
 
@@ -1996,19 +2047,30 @@ document.addEventListener('DOMContentLoaded', () => {
         head.className = 'ops-card__id';
         head.appendChild(document.createTextNode(r.rfqId + ' · '));
         var pill = document.createElement('span');
-        pill.className = 'status-pill status-pill--' + rfqStageClass(r.status);
-        pill.textContent = r.status || 'Pending';
+        pill.className = 'status-pill status-pill--' +
+          (isExim ? eximStageClass(r.eximStatus) : rfqStageClass(r.status));
+        pill.textContent = (isExim ? r.eximStatus : r.status) || 'Pending';
         head.appendChild(pill);
         card.appendChild(head);
 
         var lines = [
           r.origin + ' → ' + r.destination,
-          (r.commodity || '—') + ' · ' + (r.shipmentType || '—') + ' · ' + (r.cargoWeight || '—'),
-          r.quoteCount + (r.quoteCount === 1 ? ' quotation received' : ' quotations received'),
-          r.matchedPartner
-            ? 'Awarded to ' + r.matchedPartner
-            : 'The winning partner is named once the deal is awarded.'
+          (r.commodity || '—') + ' · ' + (r.shipmentType || '—') + ' · ' + (r.cargoWeight || '—')
         ];
+
+        if (isExim) {
+          lines.push(r.quoteAmount
+            ? 'Our quotation: ' + portalINR(r.quoteAmount) +
+              (r.quoteValidity ? ' · valid ' + r.quoteValidity + ' days' : '')
+            : 'Our desk is preparing your quotation.');
+          if (r.quoteNotes) lines.push(r.quoteNotes);
+          if (r.quoteUpdatedAt) lines.push('Last updated ' + r.quoteUpdatedAt);
+        } else {
+          lines.push(r.quoteCount + (r.quoteCount === 1 ? ' quotation received' : ' quotations received'));
+          lines.push(r.matchedPartner
+            ? 'Awarded to ' + r.matchedPartner
+            : 'The winning partner is named once the deal is awarded.');
+        }
 
         var meta = document.createElement('div');
         meta.className = 'ops-card__meta';
@@ -2387,6 +2449,167 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
+    // ── Admin: EXIM desk (free members, quoted and tracked by hand) ──
+    var eximList = document.getElementById('exim-list');
+    var eximMsg = document.getElementById('exim-msg');
+    var eximStatuses = [];
+
+    function eximShowMsg(res, fallback) {
+      if (!eximMsg) return;
+      eximMsg.textContent = '';
+      var ok = res && res.status === 'success';
+      var div = document.createElement('div');
+      div.className = 'notice notice--' + (ok ? 'info' : 'warn');
+      div.textContent = ok
+        ? (res.message || fallback)
+        : ((res && res.message) || 'That change could not be saved.');
+      eximMsg.appendChild(div);
+    }
+
+    function loadEximDesk() {
+      if (!isAdmin || session.demo || !eximList) return;
+      eximList.textContent = 'Loading EXIM enquiries…';
+
+      portalApiAuth({ type: 'admin-exim-list' }).then(function(res) {
+        if (!res || res.status !== 'success') {
+          eximList.textContent = (res && res.message) || 'Could not load the EXIM desk.';
+          return;
+        }
+        eximStatuses = res.eximStatuses || [];
+        renderEximDesk(res.enquiries || []);
+      }).catch(function() {
+        eximList.textContent = 'The EXIM desk is not reachable right now.';
+      });
+    }
+
+    function eximField(label, id, value, placeholder, type) {
+      var group = document.createElement('div');
+      group.className = 'form__group';
+
+      var lbl = document.createElement('label');
+      lbl.className = 'form__label';
+      lbl.setAttribute('for', id);
+      lbl.textContent = label;
+      group.appendChild(lbl);
+
+      var input = document.createElement('input');
+      input.className = 'form__input';
+      input.type = type || 'text';
+      input.id = id;
+      input.value = value === null || value === undefined ? '' : String(value);
+      if (placeholder) input.placeholder = placeholder;
+      group.appendChild(input);
+
+      return { group: group, input: input };
+    }
+
+    function renderEximDesk(rows) {
+      eximList.textContent = '';
+
+      if (!rows.length) {
+        emptyLine(eximList, 'No EXIM enquiries yet.');
+        return;
+      }
+
+      rows.forEach(function(r) {
+        var card = document.createElement('div');
+        card.className = 'ops-card ops-card--wide';
+
+        var id = document.createElement('div');
+        id.className = 'ops-card__id';
+        id.appendChild(document.createTextNode(r.rfqId + ' · '));
+        var pill = document.createElement('span');
+        pill.className = 'status-pill status-pill--' + eximStageClass(r.eximStatus);
+        pill.textContent = r.eximStatus;
+        id.appendChild(pill);
+        card.appendChild(id);
+
+        var meta = document.createElement('div');
+        meta.className = 'ops-card__meta';
+        [
+          (r.company || '—') + ' · ' + (r.contactName || '—') + ' · ' + r.email + (r.phone ? ' · ' + r.phone : ''),
+          r.origin + ' → ' + r.destination,
+          (r.commodity || '—') + ' · ' + (r.shipmentType || '—') + ' · ' + (r.cargoWeight || '—') +
+            ' · ' + (r.containerCount || '—') + ' ctr · ' + (r.incoterm || '—'),
+          'Raised ' + (r.raisedAt || '—') + ' · ready ' + (r.readyDate || '—'),
+          r.quoteUpdatedBy
+            ? 'Last updated by ' + r.quoteUpdatedBy + ' on ' + (r.quoteUpdatedAt || '—')
+            : 'Not quoted yet'
+        ].forEach(function(line, i) {
+          if (i) meta.appendChild(document.createElement('br'));
+          meta.appendChild(document.createTextNode(line));
+        });
+        card.appendChild(meta);
+
+        if (r.message) {
+          var note = document.createElement('div');
+          note.className = 'ops-card__meta';
+          note.textContent = 'Customer note: ' + r.message;
+          card.appendChild(note);
+        }
+
+        var editor = document.createElement('div');
+        editor.className = 'ops-card__form';
+
+        var statusGroup = document.createElement('div');
+        statusGroup.className = 'form__group';
+        var statusLabel = document.createElement('label');
+        statusLabel.className = 'form__label';
+        statusLabel.setAttribute('for', 'exim-status-' + r.rfqId);
+        statusLabel.textContent = 'Shipment Status';
+        statusGroup.appendChild(statusLabel);
+
+        var statusSelect = document.createElement('select');
+        statusSelect.className = 'form__input';
+        statusSelect.id = 'exim-status-' + r.rfqId;
+        eximStatuses.forEach(function(s) {
+          var opt = document.createElement('option');
+          opt.value = s;
+          opt.textContent = s;
+          if (s === r.eximStatus) opt.selected = true;
+          statusSelect.appendChild(opt);
+        });
+        statusGroup.appendChild(statusSelect);
+        editor.appendChild(statusGroup);
+
+        var amount = eximField('Quotation (INR)', 'exim-amount-' + r.rfqId, r.quoteAmount, 'e.g. 125000');
+        var validity = eximField('Valid (days)', 'exim-validity-' + r.rfqId, r.quoteValidity, '7');
+        var notes = eximField('Quote Notes', 'exim-notes-' + r.rfqId, r.quoteNotes, 'Inclusions, exclusions, carrier');
+        [amount, validity, notes].forEach(function(f) { editor.appendChild(f.group); });
+
+        var save = document.createElement('button');
+        save.type = 'button';
+        save.className = 'btn btn--primary btn--sm';
+        save.textContent = 'Save';
+        save.addEventListener('click', function() {
+          save.disabled = true;
+          save.textContent = 'Saving…';
+
+          portalApiAuth({
+            type: 'admin-exim-update',
+            rfqId: r.rfqId,
+            eximStatus: statusSelect.value,
+            quoteAmount: amount.input.value.trim(),
+            quoteValidity: validity.input.value.trim(),
+            quoteNotes: notes.input.value.trim()
+          }).then(function(res) {
+            save.disabled = false;
+            save.textContent = 'Save';
+            eximShowMsg(res, 'Enquiry updated.');
+            if (res && res.status === 'success') loadEximDesk();
+          }).catch(function() {
+            save.disabled = false;
+            save.textContent = 'Save';
+            eximShowMsg(null);
+          });
+        });
+        editor.appendChild(save);
+
+        card.appendChild(editor);
+        eximList.appendChild(card);
+      });
+    }
+
     if (mktPanel) {
       document.querySelectorAll('.mkt__tab').forEach(function(tab) {
         tab.addEventListener('click', function() {
@@ -2398,11 +2621,15 @@ document.addEventListener('DOMContentLoaded', () => {
           document.querySelectorAll('.mkt__panel').forEach(function(panel) {
             panel.hidden = panel.id !== 'mkt-panel-' + tab.dataset.mktTab;
           });
+          if (tab.dataset.mktTab === 'exim') loadEximDesk();
         });
       });
 
       mktQuoteRfq.addEventListener('change', function() { loadQuotes(mktQuoteRfq.value); });
-      document.getElementById('mkt-refresh').addEventListener('click', loadMarketplace);
+      document.getElementById('mkt-refresh').addEventListener('click', function() {
+        loadMarketplace();
+        if (!document.getElementById('mkt-panel-exim').hidden) loadEximDesk();
+      });
 
       document.getElementById('approve-modal-close').addEventListener('click', closeApprove);
       approveModal.addEventListener('click', function(e) {
